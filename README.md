@@ -18,6 +18,38 @@
 
 ---
 
+## Start here: find your best laps with Claude
+
+1. Open **Claude Code** (in the Claude desktop app, or the `claude` CLI) in a session that can run
+   commands on the computer holding your footage. A plain chat can't reach video files.
+2. Fill in this prompt and send it:
+
+```text
+Find my 3 best 3-lap runs with Racegow.
+Repo: https://github.com/cbpulsd/FPV-Lap-Finder   (or the local folder you cloned it to)
+Footage folder: <e.g. C:\Users\me\Downloads\racegow6-track2>
+Files to scan: <all, or e.g. hdz_132 to hdz_149>
+Good lap: <file, e.g. hdz_149> starting at <time, e.g. 1:05.8>
+Clone the repo if you're not in it, then read its CLAUDE.md and follow it.
+```
+
+The good lap is any lap you know you flew cleanly: open the video, find a moment just before you pass
+through the start/finish gate in flight, and give that time.
+
+Claude then:
+- sets up Python;
+- converts `.ts` files losslessly into a new folder (your originals are never touched);
+- pins the start gate from your time;
+- times every lap in every file;
+- audits the top results;
+- saves your **3 fastest 3-lap runs** as `.mp4` clips with a lap-time overlay in
+  `<footage folder>-clips`.
+
+It comes back to you if something blocks it or needs your call, for example two quads in one folder.
+Optional extras you can add to the prompt: a track name for the overlay, how many seconds before and
+after the laps, and 4K. The first run takes about 15 minutes per 30-40 minutes of footage. The full
+workflow Claude follows is in [CLAUDE.md](CLAUDE.md).
+
 ## Skills
 
 | Skill | What it does |
@@ -136,8 +168,8 @@ evening of work.
 ### Quick start
 
 ```bash
-git clone https://github.com/irom77/Racegow.git
-cd Racegow
+git clone https://github.com/cbpulsd/FPV-Lap-Finder.git
+cd FPV-Lap-Finder
 
 python3 -m venv .fpvlaps-venv
 .fpvlaps-venv/bin/pip install -r skills/fpv-best-laps/scripts/requirements.txt
@@ -226,9 +258,9 @@ agent: *"Verify https://youtu.be/<id>, claimed 41.43 s on Track 2."* Details:
 
 ### Claude Desktop on Windows
 
-[`CLAUDE-DESKTOP-PROMPT.md`](CLAUDE-DESKTOP-PROMPT.md) has setup steps and a fill-in prompt that runs
-the whole workflow on a folder of `.ts` recordings: lossless conversion, anchor from a rough time,
-analysis, audit and export.
+The [short prompt at the top](#start-here-find-your-best-laps-with-claude) is all you need; Claude
+follows [CLAUDE.md](CLAUDE.md). [`CLAUDE-DESKTOP-PROMPT.md`](CLAUDE-DESKTOP-PROMPT.md) has the
+Windows setup steps and a longer prompt for when you want to set every option yourself.
 
 ### Audit a result before you trust it
 
@@ -278,6 +310,8 @@ Per-crossing accuracy is about ±2–3 frames (±0.05 s at 60 fps).
 
 ```
 Racegow/
+├── CLAUDE.md                  what Claude does with the short prompt at the top of this README
+├── CLAUDE-DESKTOP-PROMPT.md   Windows setup and the long fill-in prompt
 ├── skills/fpv-best-laps/      ← main skill: agent skill + CLI (start here)
 │   ├── SKILL.md               agent instructions
 │   ├── README.md              full architecture and usage

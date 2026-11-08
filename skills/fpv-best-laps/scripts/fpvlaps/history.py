@@ -80,13 +80,13 @@ def history_link_for(R):
 
 def set_report_link(report, path, n_sessions):
     """Insert or refresh the history link in a report.md (idempotent)."""
-    text = report.read_text()
+    text = report.read_text(encoding="utf-8")
     block = "\n".join(link_block(path, n_sessions))
     if LINK_START in text and LINK_END in text:
         text = re.sub(re.escape(LINK_START) + r".*?" + re.escape(LINK_END), lambda m: block, text, flags=re.S)
     else:
         text = text.rstrip("\n") + "\n\n" + block + "\n"
-    report.write_text(text)
+    report.write_text(text, encoding="utf-8")
 
 
 # ---------------------------------------------------------------- finding the sessions
@@ -151,7 +151,7 @@ def collect(track, work_root, log=print):
     found = {}
     for rp in sorted(Path(work_root).glob("*/result.json")):
         try:
-            R = json.loads(rp.read_text())
+            R = json.loads(rp.read_text(encoding="utf-8"))
         except (OSError, ValueError) as e:
             log(f"  skipping {rp}: {e}")
             continue
@@ -319,8 +319,8 @@ def write_history(track, work_root="fpvlaps-work", out=None, log=print):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     html_p = out / ("history.html" if out != Path(work_root) else f"history-{name}.html")
-    html_p.write_text(page(name, sessions))
-    (html_p.with_suffix(".json")).write_text(json.dumps(dict(track=name, sessions=sessions), indent=1))
+    html_p.write_text(page(name, sessions), encoding="utf-8")
+    (html_p.with_suffix(".json")).write_text(json.dumps(dict(track=name, sessions=sessions), indent=1), encoding="utf-8")
     for s in sessions:
         log(f"  {s['date']} {s['batch']:<14} best lap {s['best_lap'] or 0:6.2f}  best 3 {s['best3'] or 0:6.2f}  "
             f"median {s['median_lap'] or 0:6.2f}  clean {s['clean_pct']:3.0f}%  ({Path(s['work']).name})")

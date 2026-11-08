@@ -62,11 +62,12 @@ class Base(unittest.TestCase):
         R = dict(fps=FPS, videos_dir=str(videos_dir) if videos_dir else None, laps=laps, best=[],
                  reference=dict(video="v1", start=0, end=600), **extra,
                  videos=[dict(name=v, path=str(d / f"{v}.mp4"), seconds=100.0) for v in sorted({l["video"] for l in laps})])
-        (d / "result.json").write_text(json.dumps(R))
+        (d / "result.json").write_text(json.dumps(R), encoding="utf-8")
         for v, th in (thumbs or {}).items():
             np.save(d / "features" / f"{v}.thumbs.npy", th)
             (d / "features" / f"{v}.json").write_text(json.dumps(dict(video=str(d / f"{v}.mp4"), name=v, fps=FPS,
-                                                                       n=len(th), pic_box=[0, 0, 80, 60])))
+                                                                       n=len(th), pic_box=[0, 0, 80, 60])),
+                                                            encoding="utf-8")
         return d
 
 
@@ -100,7 +101,7 @@ class DefaultPair(Base):
         track = self.root / "Track2"
         for b in ("1st", "2nd"):
             (track / b).mkdir(parents=True)
-        (track / "README.md").write_text("# Track 2\n")
+        (track / "README.md").write_text("# Track 2\n", encoding="utf-8")
         old = self.session("old", [lap("hdz_0001", 0, 540), lap("hdz_0001", 540, 1150)], videos_dir=track / "1st")
         new = self.session("new", [lap("hdz_0005", 0, 570), lap("hdz_0005", 570, 1200)], videos_dir=track / "2nd")
         self.session("other", [lap("hdz_0009", 0, 300)], videos_dir=self.root / "Track1" / "1st")
@@ -147,7 +148,7 @@ class Gap(Base):
         out = self.root / "out"
         out.mkdir()
         write_md(out, C)
-        md = (out / "compare.md").read_text()
+        md = (out / "compare.md").read_text(encoding="utf-8")
         self.assertIn("| S3 |", md)
         self.assertIn("A furthest behind", md)
         L = layout(960, 720)

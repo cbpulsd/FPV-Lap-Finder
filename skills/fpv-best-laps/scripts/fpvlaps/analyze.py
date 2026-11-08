@@ -349,9 +349,9 @@ def analyze(work, names, track=None, anchor=None, videos_dir=None, correct_lap=N
     if sectors is not None and sectors_mod.parse_spec(sectors)[0] == "frames":
         ref["sectors"] = sectors_mod.boundaries(ref, sectors)[0]
         if track:                              # kept with the profile, so later batches use the same sectors
-            prof = json.loads(Path(track).read_text())
+            prof = json.loads(Path(track).read_text(encoding="utf-8"))
             prof["sectors"] = ref["sectors"]
-            Path(track).write_text(json.dumps(prof, indent=1))
+            Path(track).write_text(json.dumps(prof, indent=1), encoding="utf-8")
             log(f"  sector boundaries {ref['sectors']} saved in {track}")
     if not track:
         rv = next(v for v in pool if v["name"] == ref["video"])

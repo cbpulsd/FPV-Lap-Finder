@@ -19,9 +19,9 @@ class TestSaveTo(unittest.TestCase):
         (self.work / "export").mkdir(parents=True)
         clip = self.work / "export" / "best3_laps_hdz_0028_107.07s.mp4"
         clip.write_bytes(b"clip")
-        (self.work / "export" / "render_rank1.json").write_text(json.dumps({"output": str(clip)}))
+        (self.work / "export" / "render_rank1.json").write_text(json.dumps({"output": str(clip)}), encoding="utf-8")
         self.R = dict(videos_dir=str(self.rec), videos=[dict(name="hdz_0028", path=str(self.rec / "hdz_0028.mp4"))])
-        (self.work / "result.json").write_text(json.dumps(self.R))
+        (self.work / "result.json").write_text(json.dumps(self.R), encoding="utf-8")
 
     def tearDown(self):
         self.tmp.cleanup()

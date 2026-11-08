@@ -138,7 +138,7 @@ def list_or_pad(gen, n, black, p):
 def render(work, layout="fit", title=None, music=None, music_volume=-10.0, save_to="default"):
     import av
     work = Path(work)
-    res = json.loads((work / "picks.json").read_text())
+    res = json.loads((work / "picks.json").read_text(encoding="utf-8"))
     clips = res["clips"]
     fps_w = {}
     for p in clips:
@@ -211,7 +211,7 @@ def render(work, layout="fit", title=None, music=None, music_volume=-10.0, save_
         mus = _music(out, music, total, music_volume, exp)
     meta = dict(output=str(out.resolve()), layout=layout, size=[W, H], fps=fps, seconds=round(total, 2),
                 title=title, music=mus, clips=timeline, videos_dir=res["videos_dir"])
-    (exp / "render.json").write_text(json.dumps(meta, indent=1))
+    (exp / "render.json").write_text(json.dumps(meta, indent=1), encoding="utf-8")
     print(f"  exported {out}  ({W}x{H}, {fps} fps, {total:.1f} s)")
     if save_to:
         save_copy(work, None if save_to == "default" else save_to)
@@ -252,7 +252,7 @@ def check_save_dir(dest, videos_dir):
 
 def save_copy(work, dest=None):
     work = Path(work)
-    meta = json.loads((work / "export" / "render.json").read_text())
+    meta = json.loads((work / "export" / "render.json").read_text(encoding="utf-8"))
     src = Path(meta["output"])
     if not src.is_file():
         src = work / "export" / src.name
@@ -260,6 +260,6 @@ def save_copy(work, dest=None):
     d.mkdir(parents=True, exist_ok=True)
     shutil.copy2(src, d / src.name)
     meta["saved"] = str(d / src.name)
-    (work / "export" / "render.json").write_text(json.dumps(meta, indent=1))
+    (work / "export" / "render.json").write_text(json.dumps(meta, indent=1), encoding="utf-8")
     print(f"  saved {d / src.name}")
     return d / src.name

@@ -58,11 +58,11 @@ def flown_date(videos_dir, clips):
 
 def build_meta(work, title=None, quad=None, pilot="PAPFPV", place=None, date=None, out=None):
     work = Path(work)
-    res = json.loads((work / "picks.json").read_text())
+    res = json.loads((work / "picks.json").read_text(encoding="utf-8"))
     rj = work / "export" / "render.json"
     if not rj.exists():
         raise SystemExit("render the short first")
-    r = json.loads(rj.read_text())
+    r = json.loads(rj.read_text(encoding="utf-8"))
     clips = res["clips"]
     if date == "none":            # folder spans several sessions: leave the date out
         date, date_src = None, "left out"
@@ -101,9 +101,9 @@ def build_meta(work, title=None, quad=None, pilot="PAPFPV", place=None, date=Non
         meta["warnings"].append("no quad named: pass --quad (look up the OSD craft name in hardware.csv)")
     old = work / "export" / "youtube.json"
     if old.exists():
-        meta["youtube"] = json.loads(old.read_text()).get("youtube")
+        meta["youtube"] = json.loads(old.read_text(encoding="utf-8")).get("youtube")
     out = Path(out) if out else old
-    out.write_text(json.dumps(meta, indent=1, ensure_ascii=False) + "\n")
+    out.write_text(json.dumps(meta, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"META {out}\n\nTITLE\n{meta['title']}\n\nDESCRIPTION\n{meta['description']}\n\n"
           f"TAGS {', '.join(tags)}\nFILE {meta['file']}")
     for w in meta["warnings"]:
@@ -172,7 +172,7 @@ def playlist(work=None, videos=(), title=PLAYLIST):
     """Add this work's uploaded short (and/or the given video ids/URLs) to the playlist; record it."""
     ids = [video_id(v) for v in videos]
     mp = Path(work) / "export" / "youtube.json" if work else None
-    m = json.loads(mp.read_text()) if mp and mp.exists() else {}
+    m = json.loads(mp.read_text(encoding="utf-8")) if mp and mp.exists() else {}
     if work:
         if not m.get("youtube"):
             raise SystemExit(f"{work}: not uploaded yet")
@@ -182,7 +182,7 @@ def playlist(work=None, videos=(), title=PLAYLIST):
     url = add_to_playlist(ids, title)
     if m.get("youtube"):
         m["youtube"]["playlist"] = url
-        mp.write_text(json.dumps(m, indent=1, ensure_ascii=False) + "\n")
+        mp.write_text(json.dumps(m, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     return url
 
 
@@ -191,7 +191,7 @@ def upload(work, privacy="public", expect_channel="@niuk9290", again=False, play
     mp = work / "export" / "youtube.json"
     if not mp.exists():
         raise SystemExit("run `meta` first (and show the title/description to the pilot)")
-    m = json.loads(mp.read_text())
+    m = json.loads(mp.read_text(encoding="utf-8"))
     if m.get("youtube") and not again:
         raise SystemExit(f"already uploaded as {m['youtube']['url']} (pass --again for a second copy)")
     file = next((f for f in (m.get("file"), m.get("local")) if f and Path(f).exists()), None)
@@ -219,16 +219,16 @@ def upload(work, privacy="public", expect_channel="@niuk9290", again=False, play
     entry = dict(url=url, privacy=resp["status"]["privacyStatus"], channel=chans[0],
                  uploaded_at=datetime.now(timezone.utc).isoformat(timespec="seconds"), file=file)
     m["youtube"] = entry
-    mp.write_text(json.dumps(m, indent=1, ensure_ascii=False) + "\n")
+    mp.write_text(json.dumps(m, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     pj = work / "picks.json"
-    res = json.loads(pj.read_text())
+    res = json.loads(pj.read_text(encoding="utf-8"))
     res.setdefault("uploads", []).append(entry)
-    pj.write_text(json.dumps(res, indent=1))
+    pj.write_text(json.dumps(res, indent=1), encoding="utf-8")
     print(f"saved in {mp} and {pj}")
     if playlist_title:
         try:
             entry["playlist"] = add_to_playlist([resp["id"]], playlist_title, yt)
-            mp.write_text(json.dumps(m, indent=1, ensure_ascii=False) + "\n")
+            mp.write_text(json.dumps(m, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
         except PermissionError as e:
             print(f"WARNING not added to playlist {playlist_title!r}: {e}")
     return url

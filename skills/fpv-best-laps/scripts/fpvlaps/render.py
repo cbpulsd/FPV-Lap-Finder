@@ -167,10 +167,10 @@ def check_save_dir(dest, R):
 def save_copies(work, dest, rank=None):
     """Copy rendered clips (one rank, or every render_rankN.json in <work>/export) to dest."""
     work = Path(work)
-    R = json.loads((work / "result.json").read_text())
+    R = json.loads((work / "result.json").read_text(encoding="utf-8"))
     d = check_save_dir(dest, R)
     metas = [work / "export" / f"render_rank{rank}.json"] if rank else sorted((work / "export").glob("render_rank*.json"))
-    outs = [Path(json.loads(m.read_text())["output"]) for m in metas if m.is_file()]
+    outs = [Path(json.loads(m.read_text(encoding="utf-8"))["output"]) for m in metas if m.is_file()]
     outs = [o if o.is_file() else work / "export" / o.name for o in outs]   # "output" may be cwd-relative
     outs = [o for o in outs if o.is_file()]
     if not outs:

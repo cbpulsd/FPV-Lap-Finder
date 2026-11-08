@@ -281,7 +281,7 @@ def youtube():
 
 
 def token_scopes():
-    return set(json.loads(TOKEN.read_text()).get("scopes") or []) if TOKEN.exists() else set()
+    return set(json.loads(TOKEN.read_text(encoding="utf-8")).get("scopes") or []) if TOKEN.exists() else set()
 
 
 def channels(yt):
@@ -295,7 +295,7 @@ def cmd_auth(a):
     if a.client:
         flow = InstalledAppFlow.from_client_secrets_file(a.client, AUTH_SCOPES)
     elif TOKEN.exists():        # signing in again: reuse the client stored in the old token
-        t = json.loads(TOKEN.read_text())
+        t = json.loads(TOKEN.read_text(encoding="utf-8"))
         flow = InstalledAppFlow.from_client_config(
             {"installed": {"client_id": t["client_id"], "client_secret": t["client_secret"],
                            "auth_uri": "https://accounts.google.com/o/oauth2/auth",

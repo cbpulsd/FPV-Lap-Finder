@@ -294,9 +294,9 @@ def pick(work, good, videos_dir, length=60, clip=5, per_video=2, exclude=None, i
                total_s=round(sum(p["end"] - p["start"] for p in picked), 2), clips=picked, candidates=shortlist)
     old = work / "picks.json"
     if old.exists():
-        prev = json.loads(old.read_text())
+        prev = json.loads(old.read_text(encoding="utf-8"))
         res["uploads"] = prev.get("uploads", [])
-    old.write_text(json.dumps(res, indent=1))
+    old.write_text(json.dumps(res, indent=1), encoding="utf-8")
     from .sheet import write_sheets
     sheets = write_sheets(work, vids, res)
     write_md(work, res, sheets)
@@ -326,4 +326,4 @@ def write_md(work, res, sheets):
     for c in res["candidates"]:
         L.append(f"| {c['video']} | {mmss(c['start'])} | {mmss(c['end'])} | {c['score']:.2f} | "
                  f"{'yes' if c['picked'] else ''} |")
-    (Path(work) / "picks.md").write_text("\n".join(L) + "\n")
+    (Path(work) / "picks.md").write_text("\n".join(L) + "\n", encoding="utf-8")

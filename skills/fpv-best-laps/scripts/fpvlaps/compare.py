@@ -50,7 +50,7 @@ def load_result(work):
     p = Path(work) / "result.json"
     if not p.is_file():
         raise SystemExit(f"No result.json in {work}: run `fpvlaps.py analyze` first")
-    return json.loads(p.read_text())
+    return json.loads(p.read_text(encoding="utf-8"))
 
 
 def session_dir(name, work, work_root):
@@ -101,7 +101,7 @@ def parse_lap(spec, work=None, work_root="fpvlaps-work"):
         wd = Path(work)
     else:
         hits = [p.parent for p in sorted(Path(work_root).glob("*/result.json"))
-                if any(l["video"] == video for l in json.loads(p.read_text()).get("laps", []))]
+                if any(l["video"] == video for l in json.loads(p.read_text(encoding="utf-8")).get("laps", []))]
         if len(hits) != 1:
             raise SystemExit(f"--lap {spec!r}: {'no' if not hits else len(hits)} sessions under {work_root} have "
                              f"laps of {video}" + (f" ({', '.join(h.name for h in hits)}); prefix SESSION/" if hits else ""))
@@ -160,7 +160,7 @@ def default_pair(work, work_root="fpvlaps-work", log=print):
 def features(work, video):
     d = Path(work) / "features"
     try:
-        meta = json.loads((d / f"{video}.json").read_text())
+        meta = json.loads((d / f"{video}.json").read_text(encoding="utf-8"))
         thumbs = np.load(d / f"{video}.thumbs.npy", mmap_mode="r")
     except OSError:
         raise SystemExit(f"Features of {video} missing in {d}: run `fpvlaps.py extract` for that session again")
@@ -347,7 +347,7 @@ def write_md(out, C, video=None):
         lines += ["", f"Most time lost in **S{worst + 1}** ({fmt_gap(S['delta'][worst])})."]
     lines += ["", f"Video: `{video.name}`" if video else
               "Video: run without `--no-video` to render the side-by-side clip.", ""]
-    (out / "compare.md").write_text("\n".join(lines))
+    (out / "compare.md").write_text("\n".join(lines), encoding="utf-8")
 
 
 def bgr(hexs):
@@ -553,14 +553,14 @@ def render_hyperframes(C, P, L, clips, out, audio_k, proj):
                 sectors=[dict(x0=G["X"](edges[k]), x1=G["X"](edges[k + 1]), end=edges[k + 1], delta=S["delta"][k])
                          for k in range(len(edges) - 1)],
                 area_pos=area_path(C, G, 1), area_neg=area_path(C, G, -1))
-    html = (ASSETS / "compare" / "index.html").read_text()
+    html = (ASSETS / "compare" / "index.html").read_text(encoding="utf-8")
     dur = f"{P['n'] / P['fps']:.3f}"
     for key, val in {"__W__": str(W), "__H__": str(H), "__FPS__": f"{P['fps']:g}", "__DURATION__": dur,
                      "__DATA__": json.dumps(data),       # one lap's audio (or none): the other video is muted
                      "__AUDIO_A__": 'data-has-audio="true" data-volume="1"' if audio_k == 0 else "muted",
                      "__AUDIO_B__": 'data-has-audio="true" data-volume="1"' if audio_k == 1 else "muted"}.items():
         html = html.replace(key, val)
-    (proj / "index.html").write_text(html)
+    (proj / "index.html").write_text(html, encoding="utf-8")
     cmd = ["npx", "--yes", HYPERFRAMES, "render", str(proj), "-f", f"{P['fps']:g}", "-q", "delivery", "-o", str(out)]
     subprocess.run(cmd, check=True, env=env_with_tools())
 
@@ -596,7 +596,7 @@ def compare(work=None, laps=None, work_root="fpvlaps-work", renderer="auto", aud
     if video:
         mp4 = render_video(C, A, B, out, renderer, audio, lead, log)
         C["video"] = dict(output=str(mp4), audio=audio)
-    (out / "compare.json").write_text(json.dumps(C, indent=1))
+    (out / "compare.json").write_text(json.dumps(C, indent=1), encoding="utf-8")
     write_md(out, C, mp4)
     log(f"  comparison: {out / 'compare.md'}")
     return out

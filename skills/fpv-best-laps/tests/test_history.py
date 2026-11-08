@@ -31,7 +31,7 @@ class History(unittest.TestCase):
         self.works = root / "works"
         for b in ("2026-10-12", "2026-10-19"):
             (self.track / b).mkdir(parents=True)
-        (self.track / "README.md").write_text("# Track 2\n")
+        (self.track / "README.md").write_text("# Track 2\n", encoding="utf-8")
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -42,8 +42,8 @@ class History(unittest.TestCase):
     def save(self, work, R):
         d = self.works / work
         d.mkdir(parents=True, exist_ok=True)
-        (d / "result.json").write_text(json.dumps(R))
-        (d / "report.md").write_text("# report\n")
+        (d / "result.json").write_text(json.dumps(R), encoding="utf-8")
+        (d / "report.md").write_text("# report\n", encoding="utf-8")
         return d
 
     def test_session_stats(self):
@@ -88,7 +88,7 @@ class History(unittest.TestCase):
         rep = self.save("a", result(self.track / "2026-10-12", [lap(14.0)])) / "report.md"
         set_report_link(rep, "/t/history.html", 2)
         set_report_link(rep, "/t/history.html", 3)
-        text = rep.read_text()
+        text = rep.read_text(encoding="utf-8")
         self.assertEqual(text.count("<!-- history -->"), 1)
         self.assertIn("(3 sessions): `/t/history.html`", text)
 
@@ -96,10 +96,10 @@ class History(unittest.TestCase):
         self.save("a", result(self.track / "2026-10-12", [lap(14.0), lap(15.0)], best=44.0))
         out = write_history(str(self.track), self.works, log=self.silent)
         self.assertEqual(out, self.track / "history.html")
-        self.assertIn("<svg", out.read_text())
-        data = json.loads((self.track / "history.json").read_text())
+        self.assertIn("<svg", out.read_text(encoding="utf-8"))
+        data = json.loads((self.track / "history.json").read_text(encoding="utf-8"))
         self.assertEqual(data["sessions"][0]["best3"], 44.0)
-        self.assertIn(str(out.resolve()), (self.works / "a" / "report.md").read_text())
+        self.assertIn(str(out.resolve()), (self.works / "a" / "report.md").read_text(encoding="utf-8"))
 
     def test_no_sessions(self):
         with self.assertRaises(SystemExit):

@@ -23,6 +23,7 @@
 | Skill | What it does |
 |---|---|
 | [`fpv-best-laps`](skills/fpv-best-laps/SKILL.md) | **Main skill.** Finds the fastest 3 consecutive clean laps in a folder of DVR recordings (RaceGOW, MultiGP, indoor or outdoor) and exports the clip with a lap-time overlay. [Details below](#fpv-best-laps). |
+| [`fpv-laps-audit`](skills/fpv-laps-audit/SKILL.md) | Checks an `fpv-best-laps` result with evidence that doesn't come from the tool (frame sheets, crash-at-the-gate context, an independent recount, render sync) before you trust, post or submit it. [Details below](#audit-a-result-before-you-trust-it). |
 | [`racegow-leaderboard`](skills/racegow-leaderboard/SKILL.md) | Your current place on the RaceGOW leaderboards, per track. |
 | [`racegow-youtube`](skills/racegow-youtube/SKILL.md) | Uploads a verified clip to your YouTube channel with the title, description and tags built from the run. |
 | [`fpv-highlights`](skills/fpv-highlights/SKILL.md) | Not racing: cuts the most interesting moments (speed, rolls, dives, close passes) of a folder of freestyle/cruise/indoor footage into a vertical YouTube Short (max 60 s by default) and uploads it. [Details below](#fpv-highlights). |
@@ -223,6 +224,25 @@ with a YouTube link for each gate crossing, and any cuts found in the OSD timer.
 agent: *"Verify https://youtu.be/<id>, claimed 41.43 s on Track 2."* Details:
 [skill README](skills/fpv-best-laps/README.md#optional-verify-a-youtube-run).
 
+### Claude Desktop on Windows
+
+[`CLAUDE-DESKTOP-PROMPT.md`](CLAUDE-DESKTOP-PROMPT.md) has setup steps and a fill-in prompt that runs
+the whole workflow on a folder of `.ts` recordings: lossless conversion, anchor from a rough time,
+analysis, audit and export.
+
+### Audit a result before you trust it
+
+[`skills/fpv-laps-audit`](skills/fpv-laps-audit/SKILL.md) checks a result with evidence that doesn't
+come from the tool: one quad per batch and no duplicate exports, an anchor pinned from the pilot's rough
+time, the real lap length, the frames around every winning crossing (crashes at the gate), an
+independent recount of the winning laps and a render sync check. It ends with a verification table
+that says what was and wasn't checked. Ask your agent: *"Audit my Track 2 result before I submit it."*
+
+```bash
+.fpvlaps-venv/bin/python skills/fpv-laps-audit/scripts/fpvaudit.py probe /path/to/folder
+.fpvlaps-venv/bin/python skills/fpv-laps-audit/scripts/fpvaudit.py recount fpvlaps-work/<folder> --rank 1 --template VIDEO:FRAME
+```
+
 ### How it works
 
 ```mermaid
@@ -266,6 +286,7 @@ Racegow/
 │   ├── references/method.md   detailed method and tunables
 │   ├── tests/                 unit tests (python -m unittest discover -s skills/fpv-best-laps/tests)
 │   └── assets/                OSD digit templates, track README template, HyperFrames overlay, fonts
+├── skills/fpv-laps-audit/       side skill: independent verification of a result (fpvaudit.py)
 ├── skills/racegow-leaderboard/  side skill: RaceGOW leaderboard position
 ├── skills/racegow-youtube/      side skill: YouTube upload of a verified clip
 ├── skills/fpv-highlights/       side skill: highlights short from non-race footage (fpvhl.py)

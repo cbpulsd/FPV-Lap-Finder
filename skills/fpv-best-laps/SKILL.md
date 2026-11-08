@@ -39,9 +39,19 @@ used when you report.
 
 ### 2. Analyze the folder
 
+If a sibling `fpv-laps-audit` skill is available, run its `probe` on the folder first (undecodable
+files, duplicate exports, several quads in one folder) and use it again at step 3. Put **one quad per
+batch**: laps are matched against one camera view, so another quad's videos give few clean laps and
+can trigger the "reference lap looks wrong" warning.
+
 ```bash
 .fpvlaps-venv/bin/python <skill-dir>/scripts/fpvlaps.py analyze --videos "<folder>" --work "<work dir>"
 ```
+
+- `--lap-range LO-HI` (seconds) limits the lap periods considered. Use it when the detected lap period
+  (in `report.md`) is about 2x or 0.5x the pilot's real lap; small home tracks lap in ~5 s, big outdoor
+  ones in 10-30 s. `--set NAME=VALUE` overrides any constant in `scripts/fpvlaps/config.py` for one
+  run (e.g. `--set REFINE_SEARCH=20`) without editing the file.
 
 - Paths with Windows drive letters work as-is on Windows. Under WSL use `/mnt/c/...`.
 - **Track folder README.** When `<folder>` is a batch inside a track folder (`Track2/2nd`), the tool
@@ -98,6 +108,11 @@ spending time on a render. If you can view images, open:
   (`rank2_crossings.jpg` and `rank3_crossings.jpg` cover the runners-up. Check the one you fall back to.)
 
 If you can't view images, say so and ask the user to glance at those two files.
+
+The sheets show the exact analysed frames: where OpenCV can't seek exactly (macOS), they are decoded in
+order. For a result that matters (a submission, a posted time, unusual footage), follow the
+`fpv-laps-audit` skill as well: it adds a crash-at-the-gate check around every crossing, an
+independent recount of the winning laps, and a render sync check, and writes a verification table.
 
 **If the gate is wrong**, pick a frame where the quad passes the start gate during a lap. Find
 candidates in `laps.csv`, or by looking at the footage. Then re-run with a manual anchor
@@ -279,7 +294,11 @@ match `report.md` when both laps have sector splits against the same reference l
 | "No parked start found" / "Could not find a repeating lap pattern" | Footage doesn't start parked at the gate, or there are too few laps. Use `--anchor VIDEO:FRAME`. |
 | A video shows `armed via motion (no OSD timer found)` | No `mm:ss` timer is on screen, or the OSD font differs from Betaflight's default. Laps still work. Disarm detection then relies on motion only. `motion (OSD timer in a wider layout, ...)`: a wide-spaced timer (other pilots' uploads) was found; `verify` uses it for edits and to overrule motion-guessed disarms. |
 | No 3-lap result | Not enough consecutive clean laps. Check `laps.csv` reasons, then `--rank` / the runners-up. |
-| HyperFrames render fails | Re-run with `--renderer opencv`, and report the HyperFrames error. |
+| HyperFrames render fails | With `--renderer auto` the OpenCV renderer takes over by itself; otherwise re-run with `--renderer opencv`. Report the HyperFrames error (printed above the fallback line). |
+| Detected lap period ~2x or ~0.5x the real lap; "reference lap looks wrong" | Re-run with `--lap-range LO-HI` around the real lap (ask the pilot; check a flight overview). |
+| Crossing rows alternate between two nearby gates (e.g. an arch ~0.4 s before the start gate) | The crossing search reaches the other gate: `--set REFINE_SEARCH=N` with N below the gap in frames (20 at 90 fps for 0.4 s). |
+| One video has many laps but 0 clean | Usually another quad/camera in the batch: analyse each quad separately. |
+| A clean lap ends in a crash at the gate (no readable OSD timer) | Motion can't see that disarm. Check the frames after each winning crossing (`fpv-laps-audit` `context`). |
 | `yt-dlp could not download`, or "Only images are available" | Update it (`pip install -U 'yt-dlp[default]'`), check `doctor` for a JavaScript runtime, and check the video is public or unlisted. |
 | `verify` says **not verifiable** on an upload | No reference or no 3-lap chain. Re-run with `--readme`/`--track` for the track, or `--anchor <id>:FRAME` on a start-gate crossing. |
 

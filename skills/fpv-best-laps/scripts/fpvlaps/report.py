@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import cv2
 from .history import consistency_lines, history_link_for, link_block
-from .media import read_frames
+from .media import read_frame_set
 from .sectors import sector_lines
 
 OFFSETS = list(range(-24, 13, 6))   # frames around a crossing shown in the sheets
@@ -23,15 +23,11 @@ def _tile(fr, box, label, mark=False):
 
 def crossing_sheet(video_path, box, frames, out, title):
     """One row per crossing frame: the frames around it, the crossing itself outlined."""
+    got = read_frame_set(video_path, [c + o for c in frames for o in OFFSETS])   # one pass for all rows
     rows = []
     for c in frames:
-        tiles = []
-        want = {c + o: o for o in OFFSETS}
-        for f, fr in read_frames(video_path, c + OFFSETS[0], OFFSETS[-1] - OFFSETS[0] + 1):
-            if f in want:
-                tiles.append(_tile(fr, box, f"{f}" + (" X" if want[f] == 0 else ""), want[f] == 0))
-        while len(tiles) < len(OFFSETS):
-            tiles.append(np.zeros((180, 240, 3), np.uint8))
+        tiles = [_tile(got[c + o], box, f"{c + o}" + (" X" if o == 0 else ""), o == 0) if c + o in got
+                 else np.zeros((180, 240, 3), np.uint8) for o in OFFSETS]
         rows.append(np.hstack(tiles))
     head = np.zeros((28, rows[0].shape[1], 3), np.uint8)
     cv2.putText(head, title, (6, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
@@ -44,9 +40,9 @@ def write_reports(work, R, log=print):
     vids = {v["name"]: v for v in R["videos"]}
     sheets = work / "sheets"
     sheets.mkdir(exist_ok=True)
-    boxes = {n: json.loads((work / "features" / f"{n}.json").read_text())["pic_box"] for n in vids}
+    boxes = {n: json.loads((work / "features" / f"{n}.json").read_text(encoding="utf-8"))["pic_box"] for n in vids}
 
-    with open(work / "laps.csv", "w", newline="") as f:
+    with open(work / "laps.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["video", "start_frame", "end_frame", "start_s", "end_s", "lap_s", "match_cost", "clean", "reason"])
         for l in sorted(R["laps"], key=lambda l: (l["video"], l["start"])):
@@ -122,7 +118,7 @@ def write_reports(work, R, log=print):
     lines += ["", "Verification sheets: `sheets/reference_lap.jpg`, `sheets/rank1_crossings.jpg` .. `rank3_crossings.jpg`",
               "Every lap: `laps.csv`."]
     lines += [""] + link_block(history_link_for(R))
-    (work / "report.md").write_text("\n".join(lines) + "\n")
+    (work / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     log(f"  report: {work / 'report.md'}")
     for w in R.get("warnings", []):
         log(f"  WARNING: {w}")

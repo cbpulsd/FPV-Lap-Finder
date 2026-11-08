@@ -28,7 +28,7 @@ track that starts parked at the gate".
      spot facing the start gate (props idling or hovering in place), then launches. The parked view is
      the longest stretch of near-identical frames in the first 90 s. **Launch** is when the view
      leaves it for good. On the reference footage the gate is crossed 0.5-1 s after launch.
-   - *Lap period*: peak of descriptor self-similarity (Gram-matrix diagonals) over lags of 5-30 s.
+   - *Lap period*: peak of descriptor self-similarity (Gram-matrix diagonals) over lags of 3-30 s.
    - *Candidate laps*: in-flight frames resembling the parked view, paired about one period apart in
      one armed segment. A candidate is kept only if its two ends look like the same place (window
      correlation >= 0.6). Candidates are ranked by DTW cost across all videos, with a penalty for
@@ -149,7 +149,7 @@ profile can't be detected and still yields "laps". Use a profile only for the pi
 
 | Constant | Default | Change when |
 |---|---|---|
-| `PERIOD_RANGE_S` | 5-30 s | Very short or very long tracks |
+| `PERIOD_RANGE_S` | 3-30 s | Very short or very long tracks |
 | `STILL_MOTION` / `FLIGHT_MOTION` | 1.2 / 4.0 | Very noisy analog footage (raise both) |
 | `CLEAN_COST_MIN/MAX`, `CLEAN_COST_FACTOR` | 0.25 / 0.38, 1.55 | Clean laps rejected as off-line (raise), or crash laps passing (lower) |
 | `FAST_OUTLIER` | 0.82 | Pilots with very uneven lap times |

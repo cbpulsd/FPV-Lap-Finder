@@ -36,7 +36,7 @@ LONG_LOOP_RATIO = 1.15                        # typical clean lap above this x l
 CHAIN_MIN = 0.7                               # share of back-to-back laps that share their crossing; a
                                               # reference that doesn't start/end at the gate leaves gaps
 MAX_REFERENCE_TRIES = 6                       # auto calibration: reference candidates tried before giving up
-PERIOD_RANGE_S = (5.0, 30.0)                  # plausible lap periods for whoop tracks
+PERIOD_RANGE_S = (3.0, 30.0)                  # plausible lap periods for whoop tracks (small builds lap in ~5 s)
 REFINE_WINDOW = list(range(-30, 31, 3))       # frames around a crossing used for 60 fps alignment
 REFINE_SEARCH = 45                            # +- frames searched around a DTW boundary
 

@@ -213,6 +213,8 @@ to check the winning laps against. Template: [`assets/track-README-template.md`]
 | `--blur-strength PX` | 40 | Blur radius of that background. |
 | `--music FILE\|auto` | off | Mix music under the clip. `auto` generates a fresh upbeat electronic track (random tempo, key and patterns; no licence issues). Off by default, so the clip keeps only its own audio. |
 | `--music-volume DB` | -10 | With `--music`: music level relative to the motor audio (more negative = quieter music). |
+| `--lap-range LO-HI` | 3-30 | Lap periods considered, in seconds (`PERIOD_RANGE_S` for this run). Narrow it when the detected period is ~2x or ~0.5x the real lap. |
+| `--set NAME=VALUE` | – | Override any constant in `config.py` for this run, e.g. `--set REFINE_SEARCH=20`. Repeatable. |
 
 **Timing** (measured on 36 min of 720p60 HEVC, 22-core machine, reading a Windows drive from WSL):
 
@@ -445,7 +447,7 @@ on the start spot facing the start gate, then launches. The calibration exploits
 flowchart TB
     A["First 90 s of each video"] --> B["Parked view =<br/>longest run of near-identical frames"]
     B --> C["Launch = when the view<br/>leaves the parked view for good"]
-    D["All in-flight descriptors"] --> E["Lap period P =<br/>peak of self-similarity<br/>over lags 5–30 s"]
+    D["All in-flight descriptors"] --> E["Lap period P =<br/>peak of self-similarity<br/>over lags 3–30 s"]
     B --> F["Gate candidates =<br/>in-flight frames resembling<br/>the parked view"]
     E --> G["Candidate laps =<br/>pairs of candidates ≈ P apart<br/>in one armed segment"]
     F --> G
@@ -623,7 +625,7 @@ and generally need no change.
 
 | Constant | Default | Change when |
 |---|---|---|
-| `PERIOD_RANGE_S` | 5–30 s | Very short or very long tracks |
+| `PERIOD_RANGE_S` | 3–30 s | Very short or very long tracks |
 | `STILL_MOTION` / `FLIGHT_MOTION` | 1.2 / 4.0 | Very noisy analog footage (raise both) |
 | `CLEAN_COST_MIN/MAX`, `CLEAN_COST_FACTOR` | 0.25 / 0.38, 1.55 | Clean laps rejected as off-line (raise), or crash laps passing (lower) |
 | `GATE_FIT_MIN` | 0.55 | Valid laps rejected as "doesn't look like a gate pass" (lower) |
@@ -692,7 +694,10 @@ Tested on Track1 / Air65_2: 11 HDZero recordings, 1280×720 at 60 fps, 36 minute
 | `Warning: the reference lap looks wrong` | The reference skips part of the course or doesn't start/end at the gate. Find a start-gate crossing that begins a full, correct lap (check against the official demo) and re-run with `--anchor VIDEO:FRAME`. |
 | No 3-lap result | Not enough consecutive clean laps. Check the reasons in `laps.csv`, consider the tunables above. |
 | Rank 1 has a "Check before trusting" block | Open `sheets/rank1_crossings.jpg`. If a row differs, render the next consistent rank with `--rank N`. |
-| HyperFrames render fails | Re-run with `--renderer opencv` and report the HyperFrames error. |
+| HyperFrames render fails | `--renderer auto` falls back to the OpenCV renderer by itself; with `--renderer hyperframes`, re-run with `--renderer opencv`. Report the HyperFrames error. |
+| Detected lap period ~2x or ~0.5x the real lap | `--lap-range LO-HI` around the real lap. |
+| Crossings land on two different gates a fraction of a second apart | `--set REFINE_SEARCH=N`, N below the gap between the gates in frames. |
+| One video: many laps, 0 clean | Usually a different quad/camera in the batch. Analyse one quad per batch. |
 | `ffmpeg not found` | `pip install imageio-ffmpeg`, or install ffmpeg on PATH. |
 | Extraction very slow | Expected on first run (it decodes every frame). Copy the videos to a local drive under WSL, or raise `--workers`. Later runs use the cache. |
 

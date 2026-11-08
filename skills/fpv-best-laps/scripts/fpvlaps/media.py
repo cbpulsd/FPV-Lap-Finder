@@ -42,10 +42,33 @@ def video_info(path):
     return info
 
 
-def read_frames(path, start, count, step=1):
-    """Yield (frame_index, BGR frame) for a contiguous range (decodes sequentially after one seek)."""
+def _seek_is_exact(cap):
+    """Frame-number seeks land on the requested frame with OpenCV's FFmpeg reader. macOS AVFoundation (the
+    reader in pip's OpenCV on macOS) lands ~1% early (measured: frame 2700 -> 2674) and its timestamps are
+    no better (up to 120 frames off on a 90 fps export), so there the only safe way is decoding in order,
+    exactly as extraction numbers the frames."""
+    return cap.getBackendName() == "FFMPEG"
+
+
+def _open_at(path, start):
+    """VideoCapture positioned so the next read() returns frame `start` (None if the video is shorter)."""
     cap = cv2.VideoCapture(str(path))
-    cap.set(cv2.CAP_PROP_POS_FRAMES, max(0, start))
+    if _seek_is_exact(cap):
+        cap.set(cv2.CAP_PROP_POS_FRAMES, start)
+        return cap
+    for _ in range(start):
+        if not cap.grab():
+            cap.release()
+            return None
+    return cap
+
+
+def read_frames(path, start, count, step=1):
+    """Yield (frame_index, BGR frame) for a contiguous range; indices match extraction's."""
+    start = max(0, start)
+    cap = _open_at(path, start)
+    if cap is None:
+        return
     for k in range(count):
         ok, fr = cap.read()
         if not ok:
@@ -53,6 +76,29 @@ def read_frames(path, start, count, step=1):
         if k % step == 0:
             yield start + k, fr
     cap.release()
+
+
+def read_frame_set(path, frames):
+    """{frame_index: BGR frame} for scattered frames, in one forward pass when seeking isn't exact."""
+    want = sorted({int(f) for f in frames if f >= 0})
+    out = {}
+    if not want:
+        return out
+    cap = cv2.VideoCapture(str(path))
+    exact = _seek_is_exact(cap)
+    cap.release()
+    if exact:                                      # seek per contiguous run
+        runs, s = [], want[0]
+        for a, b in zip(want, want[1:] + [None]):
+            if b is None or b != a + 1:
+                runs.append((s, a))
+                s = b
+        for s, e in runs:
+            out.update(read_frames(path, s, e - s + 1))
+        return out
+    wset = set(want)
+    out.update((f, fr) for f, fr in read_frames(path, want[0], want[-1] - want[0] + 1) if f in wset)
+    return out
 
 
 def cut_clip(src, dst, start_frame, n_frames, fps, vf=None):

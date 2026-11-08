@@ -221,7 +221,7 @@ def main():
     text = json.dumps(out, indent=2)
     print(text)
     if a.out:
-        with open(a.out, "w") as f:
+        with open(a.out, "w", encoding="utf-8") as f:
             f.write(text + "\n")
     return 0 if found else 2
 

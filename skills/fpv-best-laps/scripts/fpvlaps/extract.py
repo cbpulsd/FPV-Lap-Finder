@@ -90,7 +90,7 @@ def extract_video(path, out_dir):
     np.savez_compressed(out_dir / f"{name}.feat.npz", motion=np.array(motion, np.float32),
                         cells=np.array(cells) if cells else np.zeros((0, 0), np.uint8))
     meta = dict(video=str(path), name=name, fps=info["fps"], n=n, width=info["w"], height=info["h"], **cal)
-    meta_p.write_text(json.dumps(meta, indent=1))
+    meta_p.write_text(json.dumps(meta, indent=1), encoding="utf-8")
     return name, f"{n} frames, {len(cal['timers'])} OSD timer(s)", True
 
 
@@ -113,7 +113,7 @@ def extract_all(videos, work, workers=None):
 
 def load(work, name):
     d = Path(work) / "features"
-    meta = json.loads((d / f"{name}.json").read_text())
+    meta = json.loads((d / f"{name}.json").read_text(encoding="utf-8"))
     z = np.load(d / f"{name}.feat.npz")
     meta["motion"] = z["motion"]
     meta["thumbs"] = np.load(d / f"{name}.thumbs.npy", mmap_mode="r")

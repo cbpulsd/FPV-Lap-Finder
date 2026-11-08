@@ -22,6 +22,10 @@ the clip with a left-aligned lap-time overlay.
 `run` = extract + analyze + render. Everything is cached under the work directory, so re-running
 `analyze` after a `--anchor` correction takes seconds.
 
+Tuning (any command): `--lap-range 3-15` limits the lap periods considered (seconds; use it when the
+detected lap period is 2x or 0.5x the real lap); `--set NAME=VALUE` overrides any constant in
+fpvlaps/config.py for this run (e.g. `--set REFINE_SEARCH=20`), without editing the file.
+
 Track folder README: when --videos is a batch folder (e.g. Track2/2nd), README.md in that folder or
 its parent is read. The reference lap is, in order: --track / --anchor / --reference-video, track.json
 next to the README, the README's **Correct lap:** line, automatic calibration. --reference-video (or a
@@ -57,6 +61,28 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 def default_work(videos):
     return Path.cwd() / "fpvlaps-work" / Path(videos).resolve().name
+
+
+def apply_overrides(ap, a):
+    """--lap-range / --set: patch fpvlaps.config before the pipeline modules import their constants."""
+    import ast
+    import fpvlaps.config as cfg
+    sets = list(a.set)
+    if a.lap_range:
+        try:
+            lo, hi = (float(x) for x in a.lap_range.split("-"))
+        except ValueError:
+            ap.error("--lap-range wants LO-HI in seconds, e.g. 3-15")
+        sets.append(f"PERIOD_RANGE_S=({lo}, {hi})")
+    for kv in sets:
+        name, _, val = kv.partition("=")
+        if not hasattr(cfg, name) or not name.isupper():
+            ap.error(f"--set: {name} is not a constant in fpvlaps/config.py")
+        try:
+            setattr(cfg, name, ast.literal_eval(val))
+        except (ValueError, SyntaxError):
+            ap.error(f"--set {name}: {val!r} is not a Python literal")
+        print(f"  config: {name} = {getattr(cfg, name)!r}")
 
 
 def main():
@@ -108,7 +134,14 @@ def main():
     ap.add_argument("--title", help="overlay subtitle (default: '<videos folder> · <video>')")
     ap.add_argument("--save-to", help="render/run/save: also copy the finished clip here (e.g. on Windows). Must be "
                                       "outside the recordings folder, which is deleted after publishing")
+    ap.add_argument("--lap-range", help="lap periods to consider, in seconds, e.g. 3-15 (default 3-30): "
+                                        "PERIOD_RANGE_S for this run")
+    ap.add_argument("--set", action="append", default=[], metavar="NAME=VALUE",
+                    help="override a constant in fpvlaps/config.py for this run, e.g. REFINE_SEARCH=20 (repeatable). "
+                         "Applies to analysis and rendering; the parallel extraction workers start fresh and "
+                         "keep config.py's values")
     a = ap.parse_args()
+    apply_overrides(ap, a)
 
     if a.command == "doctor":
         from fpvlaps.doctor import doctor

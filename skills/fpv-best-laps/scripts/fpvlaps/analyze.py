@@ -74,14 +74,14 @@ def load_all(work, names, log):
 
 def save_profile(work, ref, T, wins):
     p = Path(work) / "track.json"
-    p.write_text(json.dumps(ref, indent=1))
+    p.write_text(json.dumps(ref, indent=1), encoding="utf-8")
     np.savez_compressed(Path(work) / "track.npz", T=T, wins=np.array(wins))
     return p
 
 
 def load_profile(path):
     p = Path(path)
-    ref = json.loads(p.read_text())
+    ref = json.loads(p.read_text(encoding="utf-8"))
     z = np.load(p.with_suffix(".npz"))
     return ref, z["T"], list(z["wins"])
 
@@ -373,6 +373,6 @@ def analyze(work, names, track=None, anchor=None, videos_dir=None, correct_lap=N
                                                armed_segments=v["segments"], arm_source=v["arm_source"])
                                           for v in vids],
                   laps=all_laps, best=windows, sectors=sector_info)
-    (Path(work) / "result.json").write_text(json.dumps(result, indent=1))
+    (Path(work) / "result.json").write_text(json.dumps(result, indent=1), encoding="utf-8")
     write_reports(work, result, log)
     return result

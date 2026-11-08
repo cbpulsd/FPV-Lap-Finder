@@ -73,7 +73,7 @@ def main():
     folder = ROOT / season
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     meta_path = folder / "sources.json"
-    meta = json.loads(meta_path.read_text()) if meta_path.exists() else {"season": season, "docs": {}}
+    meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {"season": season, "docs": {}}
 
     changes = []
     for label, doc_id in docs:
@@ -82,7 +82,7 @@ def main():
         url = DOC.format(id=doc_id)
         content = f"<!-- {label}: {url} (exported by rules/update_rules.py) -->\n\n{body}"
         path = folder / name
-        old = path.read_text() if path.exists() else None
+        old = path.read_text(encoding="utf-8") if path.exists() else None
         status = "new" if old is None else ("changed" if old != content else "unchanged")
         print(f"{season}/{name}: {status}  ({label})")
         entry = meta["docs"].setdefault(name, {"label": label, "url": url})
@@ -92,7 +92,7 @@ def main():
             entry["changed_at"] = now
             if not a.check:
                 folder.mkdir(exist_ok=True)
-                path.write_text(content)
+                path.write_text(content, encoding="utf-8")
     gone = sorted(set(meta["docs"]) - {slug(l) + ".md" for l, _ in docs})
     for name in gone:
         print(f"{season}/{name}: no longer on the page (file kept)")
@@ -100,7 +100,7 @@ def main():
     if a.check:
         return 1 if changes else 0
     if changes:
-        meta_path.write_text(json.dumps(meta, indent=2) + "\n")
+        meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
     print(f"{len(changes)} file(s) written to rules/{season}/" if changes else "rules are up to date")
     return 0
 

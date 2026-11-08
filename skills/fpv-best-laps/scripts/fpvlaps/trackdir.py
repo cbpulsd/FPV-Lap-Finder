@@ -192,7 +192,7 @@ def save_track(work, dest=None, force=False, log=print):
     rp = work / "result.json"
     if not rp.is_file():
         raise SystemExit(f"No result.json in {work}: run `analyze` first")
-    R = json.loads(rp.read_text())
+    R = json.loads(rp.read_text(encoding="utf-8"))
     if R.get("track_profile"):
         raise SystemExit(f"This run reused the track profile {R['track_profile']}; there is no new profile to save")
     src = [work / "track.json", work / "track.npz"]

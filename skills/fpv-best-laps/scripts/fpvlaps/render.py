@@ -16,7 +16,7 @@ HYPERFRAMES = "hyperframes@0.8.145"     # pinned for reproducible renders
 
 
 def plan(work, rank, lead):
-    R = json.loads((Path(work) / "result.json").read_text())
+    R = json.loads((Path(work) / "result.json").read_text(encoding="utf-8"))
     if len(R["best"]) < rank:
         raise SystemExit("No such result: fewer than %d valid 3-lap windows (see report.md)" % rank)
     b = R["best"][rank - 1]
@@ -69,19 +69,30 @@ def hyperframes_ready():
     return bool(shutil.which("npx") and ffprobe_exe() and shutil.which("ffmpeg"))
 
 
+def hyperframes_fps(fps):
+    """HyperFrames rejects decimal frame rates ("89.9964"): a whole number when the rate is one to within
+    0.01 fps (re-encoded exports report e.g. 89.9964 for 90), otherwise the exact fraction (30000/1001)."""
+    if abs(fps - round(fps)) < 0.01:
+        return str(int(round(fps)))
+    from fractions import Fraction
+    f = Fraction(fps).limit_denominator(1001)
+    return f"{f.numerator}/{f.denominator}"
+
+
 def render_hyperframes(p, out, subtitle, proj):
     proj.mkdir(parents=True, exist_ok=True)
     (proj / "assets" / "fonts").mkdir(parents=True, exist_ok=True)
     for f in (ASSETS / "overlay" / "fonts").iterdir():
         shutil.copy(f, proj / "assets" / "fonts" / f.name)
     shutil.copy(p["clip"], proj / "assets" / "clip.mp4")
-    html = (ASSETS / "overlay" / "index.html").read_text()
+    html = (ASSETS / "overlay" / "index.html").read_text(encoding="utf-8")
     dur = f"{p['n'] / p['fps']:.3f}"
-    for k, val in {"__W__": str(p["w"]), "__H__": str(p["h"]), "__FPS__": f"{p['fps']:g}", "__DURATION__": dur,
+    fps = hyperframes_fps(p["fps"])
+    for k, val in {"__W__": str(p["w"]), "__H__": str(p["h"]), "__FPS__": fps, "__DURATION__": dur,
                    "__GATES__": json.dumps([round(g, 4) for g in p["gates"]]), "__SUBTITLE__": subtitle}.items():
         html = html.replace(k, val)
-    (proj / "index.html").write_text(html)
-    cmd = ["npx", "--yes", HYPERFRAMES, "render", str(proj), "-f", f"{p['fps']:g}", "-q", "delivery", "-o", str(out)]
+    (proj / "index.html").write_text(html, encoding="utf-8")
+    cmd = ["npx", "--yes", HYPERFRAMES, "render", str(proj), "-f", fps, "-q", "delivery", "-o", str(out)]
     subprocess.run(cmd, check=True, env=env_with_tools())
 
 
@@ -90,6 +101,8 @@ def _text(img, s, org, scale, color, weight):
 
 
 def render_opencv(p, out, subtitle):
+    # OpenCV's Hershey fonts are ASCII-only: anything else (the default subtitle's "·") draws as "??"
+    subtitle = "".join(c if ord(c) < 128 else "-" for c in subtitle)
     cap = cv2.VideoCapture(str(p["clip"]))
     W, H, fps = p["w"], p["h"], p["fps"]
     k = H / 720.0
@@ -186,9 +199,14 @@ def render(work, rank=1, renderer="auto", lead=1.0, title=None, keep_clip=False,
         print(f"  background: blurred bars around the {area[2]}x{area[3]} picture" if vf else
               "  background: no black bars found, footage left as is")
     cut_clip(src, p["clip"], p["first"], p["n"], p["fps"], vf)
+    # size of a decoded frame, not CAP_PROP_FRAME_WIDTH: macOS reports the display width for non-square
+    # pixels (1279.98 for 1280 px at SAR 57599:57600), and an odd width makes x264 refuse the stream
     cap = cv2.VideoCapture(str(p["clip"]))
-    p["w"], p["h"] = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    ok, fr = cap.read()
     cap.release()
+    if not ok:
+        raise SystemExit(f"Cannot read the cut clip {p['clip']}")
+    p["h"], p["w"] = fr.shape[:2]
     folder = Path(p["R"]["videos_dir"]).name if p["R"].get("videos_dir") else ""
     subtitle = title or " · ".join(s for s in (folder, p["video"]["name"]) if s)
     out = exp / f"best3_laps_{p['video']['name']}_{p['total']:.2f}s.mp4"
@@ -198,8 +216,15 @@ def render(work, rank=1, renderer="auto", lead=1.0, title=None, keep_clip=False,
         if use == "opencv":
             print("  HyperFrames needs npx + ffmpeg + ffprobe on PATH; using the OpenCV renderer")
     if use == "hyperframes":
-        render_hyperframes(p, out, subtitle, exp / f"hyperframes_rank{rank}")
-    else:
+        try:
+            render_hyperframes(p, out, subtitle, exp / f"hyperframes_rank{rank}")
+        except subprocess.CalledProcessError:
+            if renderer != "auto":
+                raise SystemExit("HyperFrames render failed (its message is above). Re-run with --renderer opencv.")
+            print("  HyperFrames render failed (its message is above); falling back to the OpenCV renderer")
+            use = "opencv"
+            out.unlink(missing_ok=True)
+    if use == "opencv":
         render_opencv(p, out, subtitle)
     if not keep_clip:
         p["clip"].unlink(missing_ok=True)       # intermediate cut; the export folder keeps only deliverables
@@ -225,7 +250,7 @@ def render(work, rank=1, renderer="auto", lead=1.0, title=None, keep_clip=False,
     meta = dict(output=str(out), renderer=use, video=p["video"]["name"], source_frames=[p["first"], p["first"] + p["n"] - 1],
                 gates_clip_s=p["gates"], laps_s=p["times"], total_s=p["total"], background="blur" if vf else "black",
                 music=mus)
-    (exp / f"render_rank{rank}.json").write_text(json.dumps(meta, indent=1))
+    (exp / f"render_rank{rank}.json").write_text(json.dumps(meta, indent=1), encoding="utf-8")
     print(f"  exported {out}  ({use})")
     if save_to:
         save_copies(work, save_to, rank)

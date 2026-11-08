@@ -42,7 +42,7 @@ VIDEO_SYSTEMS = [(r"^hdz_", "HDZero"), (r"^dji|^DJIG", "DJI"), (r"^avatar|^Avata
 
 def load_run(work, rank):
     """Best result number `rank` from fpv-best-laps' result.json, plus the rendered clip."""
-    result = json.loads((work / "result.json").read_text())
+    result = json.loads((work / "result.json").read_text(encoding="utf-8"))
     best = result.get("best") or []
     if not 1 <= rank <= len(best):
         sys.exit(f"{work}/result.json has {len(best)} ranked results, no rank {rank}")
@@ -50,7 +50,7 @@ def load_run(work, rank):
     render = work / "export" / f"render_rank{rank}.json"
     clip = None
     if render.exists():
-        out = json.loads(render.read_text())["output"]
+        out = json.loads(render.read_text(encoding="utf-8"))["output"]
         clip = next((p for p in (Path(out), work.parent.parent / out, work / "export" / Path(out).name)
                      if p.exists()), None)
     src = next((v["path"] for v in result.get("videos", []) if v["name"] == b["video"]), None)
@@ -154,7 +154,7 @@ def seconds(ts):
 def leaderboard(path):
     """The racegow-leaderboard JSON: from a file, or by running the sibling skill."""
     if path:
-        return json.loads(Path(path).read_text())
+        return json.loads(Path(path).read_text(encoding="utf-8"))
     if not LEADERBOARD_SCRIPT.exists():
         return None
     out = subprocess.run([sys.executable, "-I", str(LEADERBOARD_SCRIPT)], capture_output=True, text=True,
@@ -275,7 +275,7 @@ def youtube():
     c = Credentials.from_authorized_user_file(str(TOKEN))     # the scopes the token was granted
     if not c.valid and c.refresh_token:
         c.refresh(Request())
-        TOKEN.write_text(c.to_json())
+        TOKEN.write_text(c.to_json(), encoding="utf-8")
         TOKEN.chmod(0o600)
     return build("youtube", "v3", credentials=c)
 
@@ -308,7 +308,7 @@ def cmd_auth(a):
                               authorization_prompt_message="Open this URL to sign in:\nAUTH_URL {url}",
                               success_message="Done. You can close this tab.")
     CONFIG.mkdir(parents=True, exist_ok=True)
-    TOKEN.write_text(c.to_json())
+    TOKEN.write_text(c.to_json(), encoding="utf-8")
     TOKEN.chmod(0o600)
     print(json.dumps(channels(youtube()), indent=2))
 
@@ -321,7 +321,7 @@ def cmd_meta(a):
     meta = build_meta(a)
     out = Path(a.out) if a.out else Path(meta["context"]["work"]) / "export" / f"youtube_rank{a.rank}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(meta, indent=1, ensure_ascii=False) + "\n")
+    out.write_text(json.dumps(meta, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"META {out}\n\nTITLE\n{meta['title']}\n\nDESCRIPTION\n{meta['description']}\n\n"
           f"TAGS {', '.join(meta['tags'])}\nFILE {meta['file']}")
     for w in meta["warnings"]:
@@ -330,7 +330,7 @@ def cmd_meta(a):
 
 def cmd_upload(a):
     meta_path = Path(a.meta)
-    m = json.loads(meta_path.read_text())
+    m = json.loads(meta_path.read_text(encoding="utf-8"))
     file = a.file or m.get("file")
     if not file or not Path(file).exists():
         sys.exit(f"clip not found: {file}")
@@ -361,7 +361,7 @@ def cmd_upload(a):
 
 def cmd_record(a):
     meta_path = Path(a.meta)
-    record(meta_path, json.loads(meta_path.read_text()), a.url, a.privacy, None)
+    record(meta_path, json.loads(meta_path.read_text(encoding="utf-8")), a.url, a.privacy, None)
 
 
 def record(meta_path, m, url, privacy, channel):
@@ -369,14 +369,14 @@ def record(meta_path, m, url, privacy, channel):
     entry = {"url": url, "privacy": privacy, "channel": channel,
              "uploaded_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
     m["youtube"] = entry
-    meta_path.write_text(json.dumps(m, indent=1, ensure_ascii=False) + "\n")
+    meta_path.write_text(json.dumps(m, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
 
     ctx = m["context"]
     res_path = Path(ctx["work"]) / "result.json"
-    res = json.loads(res_path.read_text())
+    res = json.loads(res_path.read_text(encoding="utf-8"))
     res.setdefault("uploads", []).append({"rank": ctx["rank"], "video": ctx["video"],
                                           "total": ctx["total"], **entry})
-    res_path.write_text(json.dumps(res, indent=1) + "\n")
+    res_path.write_text(json.dumps(res, indent=1) + "\n", encoding="utf-8")
     print(f"saved in {meta_path} and {res_path}")
 
     if ctx.get("readme"):

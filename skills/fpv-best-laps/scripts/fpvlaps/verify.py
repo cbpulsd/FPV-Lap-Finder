@@ -437,14 +437,14 @@ def write(work, R, claim, tol, verdict, why, w, others, src, edits, log=print):
                          f"({j['shift']:+.2f}s against the footage)")
     lines += ["", "Lap timing: crossings are matched visually to about +-3 frames. All laps: `laps.csv`; "
               "the full analysis: `report.md`.", ""]
-    (work / "verify.md").write_text("\n".join(lines))
+    (work / "verify.md").write_text("\n".join(lines), encoding="utf-8")
     log(f"  verification: {work / 'verify.md'}")
 
 
 def verify(work, claim=None, tol=None, log=print):
     """Run the verification on an analysed work directory. `claim` is the --claim string."""
     work = Path(work)
-    R = json.loads((work / "result.json").read_text())
+    R = json.loads((work / "result.json").read_text(encoding="utf-8"))
     from .youtube import load_source
     src = load_source(work)
     c = parse_claim(claim)
@@ -459,7 +459,7 @@ def verify(work, claim=None, tol=None, log=print):
         why += f"; the footage has {n_cuts} edit(s) (see below), which can break laps apart"
     if w:
         vpath = next(v["path"] for v in R["videos"] if v["name"] == w["video"])
-        box = json.loads((work / "features" / f"{w['video']}.json").read_text())["pic_box"]
+        box = json.loads((work / "features" / f"{w['video']}.json").read_text(encoding="utf-8"))["pic_box"]
         crossing_sheet(vpath, box, [w["laps"][0]["start"]] + [l["end"] for l in w["laps"]],
                        work / "sheets" / "verify_crossings.jpg",
                        f"{verdict.upper()}: {w['video']} {w['total']:.2f}s - each row one gate crossing (X)")
@@ -473,7 +473,7 @@ def verify(work, claim=None, tol=None, log=print):
                                              crossings=[dict(label=a, frame=f, seconds=round(t, 3), link=u)
                                                         for a, f, t, u in crossings(w, R["fps"], src)]),
                edits={n: (e[0], e[1]) for n, e in edits.items()})
-    (work / "verify.json").write_text(json.dumps(out, indent=1))
+    (work / "verify.json").write_text(json.dumps(out, indent=1), encoding="utf-8")
     log(f"  VERDICT: {verdict.upper()} - {why}")
     return out
 
@@ -488,7 +488,7 @@ def cannot_time(work, claim, error, log=print):
            "--track with the profile of the same build works too; never use one from another pilot's room")
     title = f"Video: [{src.get('title') or src['id']}]({src['url']})\n\n" if src else ""
     (work / "verify.md").write_text(f"# Run verification\n\n{title}## Verdict: **NOT VERIFIABLE**\n\n"
-                                    f"{why[0].upper() + why[1:]}.\n")
+                                    f"{why[0].upper() + why[1:]}.\n", encoding="utf-8")
     (work / "verify.json").write_text(json.dumps(dict(verdict="not verifiable", why=why, claim=parse_claim(claim),
-                                                      source=src, chain=None), indent=1))
+                                                      source=src, chain=None), indent=1), encoding="utf-8")
     log(f"  VERDICT: NOT VERIFIABLE - {why}")

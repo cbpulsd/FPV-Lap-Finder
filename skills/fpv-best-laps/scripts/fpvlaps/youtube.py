@@ -80,7 +80,7 @@ def download(url, raw_dir, log=print):
     out, info_p = raw_dir / f"{vid}.mp4", raw_dir / f"{vid}.info.json"
     if out.is_file() and info_p.is_file():
         log(f"  [download] {vid}: cached")
-        return out, json.loads(info_p.read_text())
+        return out, json.loads(info_p.read_text(encoding="utf-8"))
     cmd = ytdlp_cmd() + js_runtime_args() + [
         "--no-playlist", "--no-progress", "-S", "fps,res,vcodec:h264,acodec:m4a",
         "--merge-output-format", "mp4", "--ffmpeg-location", ffmpeg_exe(),
@@ -93,8 +93,8 @@ def download(url, raw_dir, log=print):
     if r.returncode or not out.is_file():
         info_p.unlink(missing_ok=True)
         raise SystemExit(f"yt-dlp could not download {url} (exit {r.returncode})")
-    info = json.loads(info_p.read_text().strip().splitlines()[-1])
-    info_p.write_text(json.dumps(info, indent=1))
+    info = json.loads(info_p.read_text(encoding="utf-8").strip().splitlines()[-1])
+    info_p.write_text(json.dumps(info, indent=1), encoding="utf-8")
     return out, info
 
 
@@ -196,7 +196,7 @@ def layout(raw, info, work, start=None, end=None, log=print):
                upload_date=info.get("upload_date"), duration=info.get("duration"), fps=fps, analysis_fps=afps,
                width=info.get("width"), height=info.get("height"), format_id=info.get("format_id"),
                variable_frame_rate=vfr, offset_s=t0, end_s=t1, raw=str(raw), video=str(out), name=name)
-    (src_dir / "source.json").write_text(json.dumps(src, indent=1))
+    (src_dir / "source.json").write_text(json.dumps(src, indent=1), encoding="utf-8")
     if fps < 50:
         log(f"  note: {fps:g} fps upload: crossings are timed to +-{3 / fps:.2f}s instead of +-0.05s")
     return batch, src
@@ -204,4 +204,4 @@ def layout(raw, info, work, start=None, end=None, log=print):
 
 def load_source(work):
     p = Path(work) / "source" / "source.json"
-    return json.loads(p.read_text()) if p.is_file() else None
+    return json.loads(p.read_text(encoding="utf-8")) if p.is_file() else None

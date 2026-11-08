@@ -15,7 +15,7 @@ from .media import cut_clip, ffmpeg_exe, ffprobe_exe, env_with_tools, read_frame
 HYPERFRAMES = "hyperframes@0.8.145"     # pinned for reproducible renders
 
 
-def plan(work, rank, lead):
+def plan(work, rank, lead, tail=None):
     R = json.loads((Path(work) / "result.json").read_text(encoding="utf-8"))
     if len(R["best"]) < rank:
         raise SystemExit("No such result: fewer than %d valid 3-lap windows (see report.md)" % rank)
@@ -24,8 +24,9 @@ def plan(work, rank, lead):
     fps = R["fps"]
     crossings = [b["laps"][0]["start"]] + [l["end"] for l in b["laps"]]
     pad = int(round(lead * fps))
+    pad_after = pad if tail is None else int(round(tail * fps))    # tail defaults to lead: same padding both sides
     first = max(0, crossings[0] - pad)
-    last = min(int(v["seconds"] * fps) - 1, crossings[-1] + pad)
+    last = min(int(v["seconds"] * fps) - 1, crossings[-1] + pad_after)
     gates = [(c - first) / fps for c in crossings]
     return dict(R=R, best=b, video=v, fps=fps, first=first, n=last - first + 1, gates=gates,
                 times=[l["time"] for l in b["laps"]], total=b["total"])
@@ -100,12 +101,12 @@ def _text(img, s, org, scale, color, weight):
     cv2.putText(img, s, org, cv2.FONT_HERSHEY_DUPLEX, scale, color, weight, cv2.LINE_AA)
 
 
-def render_opencv(p, out, subtitle):
+def render_opencv(p, out, subtitle, scale=1.0):
     # OpenCV's Hershey fonts are ASCII-only: anything else (the default subtitle's "·") draws as "??"
     subtitle = "".join(c if ord(c) < 128 else "-" for c in subtitle)
     cap = cv2.VideoCapture(str(p["clip"]))
     W, H, fps = p["w"], p["h"], p["fps"]
-    k = H / 720.0
+    k = H / 720.0 * scale                   # every overlay size and offset is in 720p units times k
     ff = subprocess.Popen([ffmpeg_exe(), "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24",
                            "-s", f"{W}x{H}", "-r", f"{fps:g}", "-i", "-", "-i", str(p["clip"]),
                            "-map", "0:v", "-map", "1:a?", "-c:v", "libx264", "-preset", "medium", "-crf", "16",
@@ -146,6 +147,30 @@ def render_opencv(p, out, subtitle):
     cap.release()
 
 
+def parse_size(s):
+    """--upscale value -> (width, height): '4k', '1440p' or 'WxH'."""
+    named = {"4k": (3840, 2160), "2160p": (3840, 2160), "1440p": (2560, 1440), "1080p": (1920, 1080)}
+    if s.lower() in named:
+        return named[s.lower()]
+    try:
+        w, h = (int(x) for x in s.lower().split("x"))
+    except ValueError:
+        raise SystemExit(f"--upscale wants 4k, 1440p, 1080p or WxH (e.g. 3840x2160), not {s!r}")
+    if w % 2 or h % 2:
+        raise SystemExit(f"--upscale {s}: width and height must be even for yuv420p")
+    return w, h
+
+
+def upscale_clip(src, dst, size):
+    """Re-encode the finished clip at `size` (lanczos), same frames and fps, audio copied. Adds no detail:
+    a 4K upload just gets YouTube's higher-bitrate encode instead of the 720p one."""
+    w, h = size
+    cmd = [ffmpeg_exe(), "-loglevel", "error", "-y", "-i", str(src), "-vf", f"scale={w}:{h}:flags=lanczos",
+           "-c:v", "libx264", "-preset", "medium", "-crf", "16", "-pix_fmt", "yuv420p", "-c:a", "copy",
+           "-movflags", "+faststart", str(dst)]
+    subprocess.run(cmd, check=True)
+
+
 def source_dirs(R):
     """Folders holding the session's recordings (the batch folder and every video's own folder)."""
     dirs = {Path(R["videos_dir"]).resolve()} if R.get("videos_dir") else set()
@@ -183,9 +208,11 @@ def save_copies(work, dest, rank=None):
 
 
 def render(work, rank=1, renderer="auto", lead=1.0, title=None, keep_clip=False, background="blur",
-           blur_strength=40, music=None, music_volume=-10.0, save_to=None):
+           blur_strength=40, music=None, music_volume=-10.0, save_to=None, tail=None, overlay_scale=1.0,
+           upscale=None):
     work = Path(work)
-    p = plan(work, rank, lead)
+    p = plan(work, rank, lead, tail)
+    size = parse_size(upscale) if upscale else None
     if save_to:
         check_save_dir(save_to, p["R"])          # fail before minutes of rendering, not after
     src = p["video"]["path"]
@@ -209,13 +236,17 @@ def render(work, rank=1, renderer="auto", lead=1.0, title=None, keep_clip=False,
     p["h"], p["w"] = fr.shape[:2]
     folder = Path(p["R"]["videos_dir"]).name if p["R"].get("videos_dir") else ""
     subtitle = title or " · ".join(s for s in (folder, p["video"]["name"]) if s)
-    out = exp / f"best3_laps_{p['video']['name']}_{p['total']:.2f}s.mp4"
+    subtitle = subtitle.replace("{total}", f"{p['total']:.2f}s")     # e.g. --title "RaceGOW6 Track 2 - {total}"
+    # ranks after the first get a suffix: two windows in one video can share a total (overlapping laps)
+    out = exp / f"best3_laps_{p['video']['name']}_{p['total']:.2f}s{'' if rank == 1 else f'_rank{rank}'}.mp4"
     use = renderer
     if renderer == "auto":
         use = "hyperframes" if hyperframes_ready() else "opencv"
         if use == "opencv":
             print("  HyperFrames needs npx + ffmpeg + ffprobe on PATH; using the OpenCV renderer")
     if use == "hyperframes":
+        if overlay_scale != 1.0:
+            print("  --overlay-scale applies to the OpenCV renderer only; HyperFrames keeps its own layout")
         try:
             render_hyperframes(p, out, subtitle, exp / f"hyperframes_rank{rank}")
         except subprocess.CalledProcessError:
@@ -225,7 +256,7 @@ def render(work, rank=1, renderer="auto", lead=1.0, title=None, keep_clip=False,
             use = "opencv"
             out.unlink(missing_ok=True)
     if use == "opencv":
-        render_opencv(p, out, subtitle)
+        render_opencv(p, out, subtitle, overlay_scale)
     if not keep_clip:
         p["clip"].unlink(missing_ok=True)       # intermediate cut; the export folder keeps only deliverables
     mus = None
@@ -247,9 +278,15 @@ def render(work, rank=1, renderer="auto", lead=1.0, title=None, keep_clip=False,
         if music == "auto" and not keep_clip:
             track.unlink(missing_ok=True)       # generated track is an intermediate; its seed is in render_rankN.json
         mus["music_volume_db"] = music_volume
+    if size:
+        up = out.with_name(f"{out.stem}_{size[1]}p.mp4")
+        print(f"  upscaling to {size[0]}x{size[1]}")
+        upscale_clip(out, up, size)
+        out.unlink(missing_ok=True)             # the upscaled clip is the deliverable
+        out = up
     meta = dict(output=str(out), renderer=use, video=p["video"]["name"], source_frames=[p["first"], p["first"] + p["n"] - 1],
                 gates_clip_s=p["gates"], laps_s=p["times"], total_s=p["total"], background="blur" if vf else "black",
-                music=mus)
+                music=mus, size=list(size) if size else [p["w"], p["h"]])
     (exp / f"render_rank{rank}.json").write_text(json.dumps(meta, indent=1), encoding="utf-8")
     print(f"  exported {out}  ({use})")
     if save_to:

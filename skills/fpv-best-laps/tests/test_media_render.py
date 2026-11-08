@@ -1,6 +1,8 @@
-"""Unit tests for frame access, per-run config overrides and the HyperFrames frame-rate argument."""
+"""Unit tests for frame access, per-run config overrides, render planning and the HyperFrames frame-rate
+argument."""
 import argparse
 import importlib.util
+import json
 import subprocess
 import sys
 import tempfile
@@ -14,7 +16,7 @@ sys.path.insert(0, str(SCRIPTS))
 
 import fpvlaps.config as cfg  # noqa: E402
 from fpvlaps.media import ffmpeg_exe, read_frames, read_frame_set  # noqa: E402
-from fpvlaps.render import hyperframes_fps  # noqa: E402
+from fpvlaps.render import hyperframes_fps, parse_size, plan  # noqa: E402
 
 
 def load_cli():
@@ -63,6 +65,48 @@ class Overrides(unittest.TestCase):
             self.run_with(sets=["REFINE_SEARCH=twenty"])
         with self.assertRaises(SystemExit):
             self.run_with(lap_range="3to15")
+
+
+class RenderPlan(unittest.TestCase):
+    """Clip window around the 3 laps: crossings at frames 600, 960, 1320, 1680 of a 100 s, 60 fps video."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.work = Path(self.tmp.name)
+        laps = [dict(start=s, end=s + 360, time=6.0) for s in (600, 960, 1320)]
+        R = dict(fps=60.0, best=[dict(video="hdz_1", laps=laps, total=18.0)],
+                 videos=[dict(name="hdz_1", path="hdz_1.mp4", seconds=100.0)])
+        (self.work / "result.json").write_text(json.dumps(R), encoding="utf-8")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_lead_pads_both_sides_by_default(self):
+        p = plan(self.work, 1, 1.0)
+        self.assertEqual((p["first"], p["first"] + p["n"] - 1), (540, 1740))
+        self.assertEqual(p["gates"][0], 1.0)
+
+    def test_tail_pads_after_only(self):
+        p = plan(self.work, 1, 10.0, tail=20.0)
+        self.assertEqual((p["first"], p["first"] + p["n"] - 1), (0, 2880))
+        self.assertEqual(p["gates"], [10.0, 16.0, 22.0, 28.0])
+
+    def test_window_stops_at_the_video_end(self):
+        p = plan(self.work, 1, 1.0, tail=1000.0)
+        self.assertEqual(p["first"] + p["n"] - 1, 5999)
+
+
+class UpscaleSize(unittest.TestCase):
+    def test_names_and_explicit_sizes(self):
+        self.assertEqual(parse_size("4k"), (3840, 2160))
+        self.assertEqual(parse_size("1440P"), (2560, 1440))
+        self.assertEqual(parse_size("3840x2160"), (3840, 2160))
+
+    def test_rejects_odd_or_unreadable_sizes(self):
+        with self.assertRaises(SystemExit):
+            parse_size("3841x2160")
+        with self.assertRaises(SystemExit):
+            parse_size("big")
 
 
 class FrameAccess(unittest.TestCase):

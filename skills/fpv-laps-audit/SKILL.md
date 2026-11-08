@@ -144,6 +144,8 @@ steadier than splits. For a fully independent human check, the pilot can mark th
 | Period ~2x real on long outdoor laps | Two laps look more alike than one | `--lap-range` capped below 2x the lap |
 | Crossing rows alternate between two gates ~0.4 s apart; a wrong rank 1 | Crossing alignment search (`REFINE_SEARCH` = 45 frames = 0.5 s at 90 fps) reaches the neighbouring gate | `--set REFINE_SEARCH=20` (less than the gap between the gates, in frames) |
 | One video: many laps, 0 clean, chaining far below the others | Different quad/camera in the batch | One quad per batch |
+| Few clean laps in every video, rejections mostly `cost 0.39-0.45 > 0.38`; the only result is the anchor's own flight | Clean-cost threshold clamped at `CLEAN_COST_MAX` = 0.38 against a one-lap reference (measured: 20 of 141 laps clean) | `--set CLEAN_COST_MAX=0.45` (measured: 65 of 141), then audit every rank you use; laps that start right after a relaunch or end next to a crash need `context` |
+| A clean lap 1 s before a tumble or stats screen | Crash on the next lap, after the gate was passed | Not a crash at the gate: check frame by frame that the crossing itself flies on normally, then keep the lap |
 | A "clean" lap ending in a crash at the gate | No readable OSD timer; motion can't see the disarm | `context` check; reject the lap |
 | Rank 1 starts right after launch from the pad | Launch pass counted as a crossing | Rules decide; usually take the first flying lap |
 | `opencv:FAIL` on .ts | No FFmpeg in pip OpenCV on macOS | Lossless remux to .mp4 (new folder) |

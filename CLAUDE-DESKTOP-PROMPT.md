@@ -1,14 +1,16 @@
 # Running a new track with Claude Desktop (Windows)
 
 ## Setup
-1. Unzip this folder somewhere without spaces in the path, e.g. `C:\Racegow`.
-2. Install **Python 3.9 or newer** from python.org and tick **"Add python.exe to PATH"**. Node.js is
-   optional: with Node and ffmpeg/ffprobe installed, the clip gets the nicer HyperFrames overlay;
-   without them it gets the same layout drawn by OpenCV.
+1. Get the repo into a folder without spaces in the path, e.g. `C:\Racegow`: with Git,
+   `git clone https://github.com/cbpulsd/FPV-Lap-Finder.git C:\Racegow` (Git for Windows:
+   `winget install Git.Git`), or **Code > Download ZIP** on GitHub and unzip it there.
+2. Install **Python 3.9 or newer** from python.org and tick **"Add python.exe to PATH"** (or
+   `winget install Python.Python.3.12`). Node.js is optional: with Node and ffmpeg/ffprobe installed,
+   the clip gets the nicer HyperFrames overlay; without them it gets the same layout drawn by OpenCV.
 3. In Claude Desktop, start a session that can **run commands on this PC** (for example Claude Code
    in the desktop app) with `C:\Racegow` as its folder. A chat-only session can't reach multi-GB
    video files.
-4. Copy the prompt below, fill in the four `<...>` lines, and send it.
+4. Copy the prompt below, fill in the `<...>` lines, and send it.
 
 The first decode of the footage takes a while (roughly 15 minutes per 30-40 minutes of 720p video).
 Later steps reuse it.
@@ -26,6 +28,8 @@ My inputs:
   clean laps.
 - Anything else I know (approximate lap time, which gate is start/finish, several quads, does the lap
   from the launch pad count?): <e.g. laps are about 9 s; one quad>
+- Clip: <e.g. ranks 1-3; 10 s before and 20 s after the laps; smaller overlay; 4K for YouTube>
+- Save the clips to (outside the footage folder): <C:\Users\me\Videos\fpv-shorts\TrackName>
 
 This folder is the Racegow repo. Before doing anything, read skills/fpv-best-laps/SKILL.md and
 skills/fpv-laps-audit/SKILL.md, and follow them. Specifically:
@@ -55,14 +59,19 @@ Steps
    frame per second), then `fpvaudit.py period`. Decide the real lap length from my numbers and the
    overview; if the detected period is about 2x or 0.5x of it, use --lap-range.
 5. Analyse: `fpvlaps.py analyze --videos <batch> --anchor <video>:<frame>` plus --lap-range and
-   --set REFINE_SEARCH=<frames> if needed (two gates close together).
+   --set REFINE_SEARCH=<frames> if needed (two gates close together). If few laps come out clean and
+   laps.csv rejects most of them only for a match cost just over 0.38, re-run with
+   --set CLEAN_COST_MAX=0.45 and say so in the report; the audit in step 6 then decides.
 6. Audit every rank you might use, per fpv-laps-audit: the crossings sheet (same event, same gate in
    every row), `context` (no crash at any crossing, not the launch lap unless it counts), `recount`
    with --template <video>:<anchor frame> (must AGREE), `chain` if there's a warning. Fix causes and
    re-run, or fall back to the next rank that passes.
-7. Export: `fpvlaps.py render --work <work> --rank <N> --title "<track name>"`, then
+7. Export each rank I asked for: `fpvlaps.py render --work <work> --rank <N> --title "<track name> -
+   {total}" --save-to "<save folder>"`, with my clip choices as --lead / --tail (seconds before /
+   after), --overlay-scale 0.7 (smaller panel) and --upscale 4k. Then
    `fpvaudit.py clipcheck <work> --rank <N>` and look at the saved last frame: the overlay must match
-   report.md.
+   report.md. Never put clips in the footage folder: it gets deleted after publishing, and a clip
+   there without the best3_laps_ prefix would be read as a recording on the next analysis.
 8. Report back: the lap table (video, lap 1/2/3, total, source times), the clip path, runners-up and
    why any rank was rejected, and the fpv-laps-audit verification table including what was NOT
    verified (gates vs the official flythrough, official timing).

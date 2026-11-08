@@ -17,6 +17,7 @@ the clip with a left-aligned lap-time overlay.
   python fpvlaps.py render   --work DIR [--rank 1] [--renderer auto|hyperframes|opencv]
                              [--background blur|black] [--blur-strength 40]
                              [--music FILE|auto] [--music-volume -10] [--save-to DIR]
+                             [--lead 1] [--tail S] [--title "... {total}"] [--overlay-scale 0.7] [--upscale 4k]
   python fpvlaps.py save     --work DIR --save-to DIR [--rank N]   (copy already-rendered clips)
 
 `run` = extract + analyze + render. Everything is cached under the work directory, so re-running
@@ -124,6 +125,7 @@ def main():
     ap.add_argument("--renderer", default="auto", choices=["auto", "hyperframes", "opencv"])
     ap.add_argument("--lead", type=float, default=1.0, help="seconds of footage before/after the 3 laps "
                                                                      "(compare: before/after the laps)")
+    ap.add_argument("--tail", type=float, help="render: seconds of footage after the 3 laps (default: same as --lead)")
     ap.add_argument("--background", default="blur", choices=["blur", "black"],
                     help="fill the black side bars with a blurred copy of the footage (default) or keep them")
     ap.add_argument("--blur-strength", type=float, default=40, help="background blur radius in pixels (default 40)")
@@ -131,7 +133,12 @@ def main():
                                     "(default: no music, original audio only)")
     ap.add_argument("--music-volume", type=float, default=-10.0,
                     help="with --music: music level relative to the motor audio, in dB (default -10)")
-    ap.add_argument("--title", help="overlay subtitle (default: '<videos folder> · <video>')")
+    ap.add_argument("--title", help="overlay subtitle (default: '<videos folder> · <video>'); {total} is replaced "
+                                    "by the 3-lap total, e.g. 'RaceGOW6 Track 2 - {total}'")
+    ap.add_argument("--overlay-scale", type=float, default=1.0,
+                    help="render: size of the lap-time panel relative to the default (OpenCV renderer), e.g. 0.7")
+    ap.add_argument("--upscale", help="render: also re-encode the clip at this size, e.g. 4k, 1440p or 3840x2160 "
+                                      "(same frames; for YouTube's higher-bitrate 4K encode)")
     ap.add_argument("--save-to", help="render/run/save: also copy the finished clip here (e.g. on Windows). Must be "
                                       "outside the recordings folder, which is deleted after publishing")
     ap.add_argument("--lap-range", help="lap periods to consider, in seconds, e.g. 3-15 (default 3-30): "
@@ -232,7 +239,8 @@ def main():
         print("[3/3] rendering")
         render(work, rank=a.rank, renderer=a.renderer, lead=a.lead, title=a.title,
                background=a.background, blur_strength=a.blur_strength, music=a.music,
-               music_volume=a.music_volume, save_to=a.save_to)
+               music_volume=a.music_volume, save_to=a.save_to, tail=a.tail, overlay_scale=a.overlay_scale,
+               upscale=a.upscale)
 
 
 if __name__ == "__main__":

@@ -141,16 +141,21 @@ next rank whose sheet is consistent, render it with `--rank N`, and say why rank
 ### 4. Export
 
 ```bash
-.fpvlaps-venv/bin/python <skill-dir>/scripts/fpvlaps.py render --work "<work dir>" [--rank 1] [--renderer auto|hyperframes|opencv] [--background blur|black] [--music FILE|auto]
+.fpvlaps-venv/bin/python <skill-dir>/scripts/fpvlaps.py render --work "<work dir>" [--rank 1] [--renderer auto|hyperframes|opencv] [--background blur|black] [--music FILE|auto] [--lead 1 --tail S] [--title "... {total}"] [--overlay-scale 0.7] [--upscale 4k]
 ```
 
 Always pass `--rank` explicitly (the rank you verified). Rendering takes minutes, so run it in the
 background if your agent can: HyperFrames took 5-12 min for a 33 s clip on a CPU-only machine, and
 the OpenCV renderer 3-10 min, mostly cutting and encoding from a slow drive.
 
-The output is `<work>/export/best3_laps_<video>_<total>s.mp4`. The source frames are cut
-frame-accurately, with 1 s before the first crossing and 1 s after the last (`--lead`), keeping the
-original audio. `--title` changes the overlay subtitle. Black side bars (4:3 footage such as HDZero)
+The output is `<work>/export/best3_laps_<video>_<total>s.mp4` (ranks after the first add `_rankN`:
+two overlapping windows in one video can share a total). The source frames are cut
+frame-accurately, with 1 s before the first crossing and 1 s after the last (`--lead`; `--tail` sets
+the time after separately, e.g. `--lead 10 --tail 20`), keeping the original audio. `--title` changes
+the overlay subtitle, and `{total}` in it becomes the 3-lap total (`--title "RaceGOW6 Track 2 -
+{total}"` instead of the default folder and file name). `--overlay-scale 0.7` makes the OpenCV
+panel smaller. `--upscale 4k` re-encodes the finished clip at 3840x2160 with the same frames (no
+added detail; pilots use it for YouTube's higher-bitrate 4K encode). Black side bars (4:3 footage such as HDZero)
 are filled with a blurred, dimmed copy of the footage by default. `--background black` keeps them,
 and `--blur-strength` (default 40 px) sets the blur. Music is off by default (the clip keeps its own
 audio). Add it only when the user asks: `--music <file>`, or `--music auto` for a generated track;
@@ -298,6 +303,7 @@ match `report.md` when both laps have sector splits against the same reference l
 | Detected lap period ~2x or ~0.5x the real lap; "reference lap looks wrong" | Re-run with `--lap-range LO-HI` around the real lap (ask the pilot; check a flight overview). |
 | Crossing rows alternate between two nearby gates (e.g. an arch ~0.4 s before the start gate) | The crossing search reaches the other gate: `--set REFINE_SEARCH=N` with N below the gap in frames (20 at 90 fps for 0.4 s). |
 | One video has many laps but 0 clean | Usually another quad/camera in the batch: analyse each quad separately. |
+| Few clean laps overall, most rejected only for `cost 0.39-0.45 > 0.38` (often with `--anchor`: one lap is the whole reference) | The clean-cost threshold is clamped at `CLEAN_COST_MAX`. Re-run with `--set CLEAN_COST_MAX=0.45` and audit every rank you use (crossings, `context`, `recount`): it lets in laps that only just missed, not crashes. Measured on an HDZero home track: 20 -> 65 clean laps of 141, best 3 from 18.68 s to 18.23 s, ranks 1-4 confirmed by recount. |
 | A clean lap ends in a crash at the gate (no readable OSD timer) | Motion can't see that disarm. Check the frames after each winning crossing (`fpv-laps-audit` `context`). |
 | `yt-dlp could not download`, or "Only images are available" | Update it (`pip install -U 'yt-dlp[default]'`), check `doctor` for a JavaScript runtime, and check the video is public or unlisted. |
 | `verify` says **not verifiable** on an upload | No reference or no 3-lap chain. Re-run with `--readme`/`--track` for the track, or `--anchor <id>:FRAME` on a start-gate crossing. |

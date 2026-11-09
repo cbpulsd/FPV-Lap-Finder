@@ -594,6 +594,9 @@ def cmd_clipcheck(a):
     if not mpath.exists():
         sys.exit(f"{mpath} not found: render rank {a.rank} first")
     meta = json.loads(mpath.read_text(encoding="utf-8"))
+    if meta.get("crossings_by_hand"):          # rendered with --crossings: check against those frames
+        cs = meta["crossings"]
+        print(f"  crossings set by hand at render: {cs}")
     clip = Path(meta["output"])
     if not clip.exists():
         clip = Path(a.work) / "export" / clip.name

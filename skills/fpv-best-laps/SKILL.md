@@ -141,7 +141,7 @@ next rank whose sheet is consistent, render it with `--rank N`, and say why rank
 ### 4. Export
 
 ```bash
-.fpvlaps-venv/bin/python <skill-dir>/scripts/fpvlaps.py render --work "<work dir>" [--rank 1] [--renderer auto|hyperframes|opencv] [--background blur|black] [--music FILE|auto] [--lead 1 --tail S] [--title "... {total}"] [--overlay-scale 0.7] [--upscale 4k]
+.fpvlaps-venv/bin/python <skill-dir>/scripts/fpvlaps.py render --work "<work dir>" [--rank 1] [--renderer auto|hyperframes|opencv] [--background blur|black] [--music FILE|auto] [--lead 1 --tail S] [--title "... {total}"] [--overlay-scale 0.7] [--upscale 4k] [--crossings F0,F1,F2,F3]
 ```
 
 Always pass `--rank` explicitly (the rank you verified). Rendering takes minutes, so run it in the
@@ -155,7 +155,10 @@ the time after separately, e.g. `--lead 10 --tail 20`), keeping the original aud
 the overlay subtitle, and `{total}` in it becomes the 3-lap total (`--title "RaceGOW6 Track 2 -
 {total}"` instead of the default folder and file name). `--overlay-scale 0.7` makes the OpenCV
 panel smaller. `--upscale 4k` re-encodes the finished clip at 3840x2160 with the same frames (no
-added detail; pilots use it for YouTube's higher-bitrate 4K encode). Black side bars (4:3 footage such as HDZero)
+added detail; pilots use it for YouTube's higher-bitrate 4K encode). `--crossings 1328,1720,2117,2535`
+replaces the rank's 4 gate frames with ones checked by eye (same crossing event in every row) when
+the audit shows the tool's crossings a few frames off; the lap times, total and overlay come from
+those frames, and frames more than 1 s from the tool's are refused. Black side bars (4:3 footage such as HDZero)
 are filled with a blurred, dimmed copy of the footage by default. `--background black` keeps them,
 and `--blur-strength` (default 40 px) sets the blur. Music is off by default (the clip keeps its own
 audio). Add it only when the user asks: `--music <file>`, or `--music auto` for a generated track;

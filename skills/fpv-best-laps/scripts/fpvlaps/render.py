@@ -15,21 +15,44 @@ from .media import cut_clip, ffmpeg_exe, ffprobe_exe, env_with_tools, read_frame
 HYPERFRAMES = "hyperframes@0.8.145"     # pinned for reproducible renders
 
 
-def plan(work, rank, lead, tail=None):
+def parse_crossings(s, n_laps):
+    """'1328,1720,2117,2535' -> [1328, 1720, 2117, 2535]: the n_laps + 1 gate-crossing frames of one window."""
+    try:
+        cs = [int(x) for x in s.replace(" ", "").split(",")]
+    except ValueError:
+        raise SystemExit(f"--crossings {s!r}: expected comma-separated frame numbers, e.g. 1328,1720,2117,2535")
+    if len(cs) != n_laps + 1 or any(b <= a for a, b in zip(cs, cs[1:])):
+        raise SystemExit(f"--crossings {s!r}: expected {n_laps + 1} increasing frame numbers "
+                         f"(start of lap 1, then the end of each lap)")
+    return cs
+
+
+def plan(work, rank, lead, tail=None, crossings=None):
+    """crossings: hand-checked gate frames (e.g. from fpv-laps-audit) replacing the tool's for this rank;
+    lap times and the total are recomputed from them."""
     R = json.loads((Path(work) / "result.json").read_text(encoding="utf-8"))
     if len(R["best"]) < rank:
         raise SystemExit("No such result: fewer than %d valid 3-lap windows (see report.md)" % rank)
     b = R["best"][rank - 1]
     v = next(x for x in R["videos"] if x["name"] == b["video"])
     fps = R["fps"]
-    crossings = [b["laps"][0]["start"]] + [l["end"] for l in b["laps"]]
+    tool = [b["laps"][0]["start"]] + [l["end"] for l in b["laps"]]
+    if crossings:
+        cs = parse_crossings(crossings, len(b["laps"]))
+        if max(abs(c - t) for c, t in zip(cs, tool)) > fps:
+            raise SystemExit(f"--crossings {crossings}: more than 1 s from the tool's crossings {tool} for rank "
+                             f"{rank} ({b['video']}); check the rank and the frame numbers")
+        times = [round((e - s) / fps, 3) for s, e in zip(cs, cs[1:])]
+        total = round((cs[-1] - cs[0]) / fps, 3)
+    else:
+        cs, times, total = tool, [l["time"] for l in b["laps"]], b["total"]
     pad = int(round(lead * fps))
     pad_after = pad if tail is None else int(round(tail * fps))    # tail defaults to lead: same padding both sides
-    first = max(0, crossings[0] - pad)
-    last = min(int(v["seconds"] * fps) - 1, crossings[-1] + pad_after)
-    gates = [(c - first) / fps for c in crossings]
+    first = max(0, cs[0] - pad)
+    last = min(int(v["seconds"] * fps) - 1, cs[-1] + pad_after)
+    gates = [(c - first) / fps for c in cs]
     return dict(R=R, best=b, video=v, fps=fps, first=first, n=last - first + 1, gates=gates,
-                times=[l["time"] for l in b["laps"]], total=b["total"])
+                times=times, total=total, crossings=cs, tool_crossings=tool)
 
 
 def active_area(src, first, n, samples=24, thr=24):
@@ -209,9 +232,12 @@ def save_copies(work, dest, rank=None):
 
 def render(work, rank=1, renderer="auto", lead=1.0, title=None, keep_clip=False, background="blur",
            blur_strength=40, music=None, music_volume=-10.0, save_to=None, tail=None, overlay_scale=1.0,
-           upscale=None):
+           upscale=None, crossings=None):
     work = Path(work)
-    p = plan(work, rank, lead, tail)
+    p = plan(work, rank, lead, tail, crossings)
+    if crossings:
+        print(f"  crossings set by hand: {p['crossings']} (tool: {p['tool_crossings']}) -> "
+              + " + ".join(f"{t:.2f}" for t in p["times"]) + f" = {p['total']:.2f}s")
     size = parse_size(upscale) if upscale else None
     if save_to:
         check_save_dir(save_to, p["R"])          # fail before minutes of rendering, not after
@@ -285,7 +311,8 @@ def render(work, rank=1, renderer="auto", lead=1.0, title=None, keep_clip=False,
         out.unlink(missing_ok=True)             # the upscaled clip is the deliverable
         out = up
     meta = dict(output=str(out), renderer=use, video=p["video"]["name"], source_frames=[p["first"], p["first"] + p["n"] - 1],
-                gates_clip_s=p["gates"], laps_s=p["times"], total_s=p["total"], background="blur" if vf else "black",
+                gates_clip_s=p["gates"], laps_s=p["times"], total_s=p["total"], crossings=p["crossings"],
+                crossings_by_hand=bool(crossings), background="blur" if vf else "black",
                 music=mus, size=list(size) if size else [p["w"], p["h"]])
     (exp / f"render_rank{rank}.json").write_text(json.dumps(meta, indent=1), encoding="utf-8")
     print(f"  exported {out}  ({use})")

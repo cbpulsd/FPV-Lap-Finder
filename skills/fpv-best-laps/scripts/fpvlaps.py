@@ -139,6 +139,8 @@ def main():
                     help="render: size of the lap-time panel relative to the default (OpenCV renderer), e.g. 0.7")
     ap.add_argument("--upscale", help="render: also re-encode the clip at this size, e.g. 4k, 1440p or 3840x2160 "
                                       "(same frames; for YouTube's higher-bitrate 4K encode)")
+    ap.add_argument("--crossings", help="render: hand-checked gate-crossing frames for --rank, e.g. 1328,1720,2117,2535 "
+                                        "(start of lap 1, then each lap's end); lap times and total come from them")
     ap.add_argument("--save-to", help="render/run/save: also copy the finished clip here (e.g. on Windows). Must be "
                                       "outside the recordings folder, which is deleted after publishing")
     ap.add_argument("--lap-range", help="lap periods to consider, in seconds, e.g. 3-15 (default 3-30): "
@@ -240,7 +242,7 @@ def main():
         render(work, rank=a.rank, renderer=a.renderer, lead=a.lead, title=a.title,
                background=a.background, blur_strength=a.blur_strength, music=a.music,
                music_volume=a.music_volume, save_to=a.save_to, tail=a.tail, overlay_scale=a.overlay_scale,
-               upscale=a.upscale)
+               upscale=a.upscale, crossings=a.crossings)
 
 
 if __name__ == "__main__":

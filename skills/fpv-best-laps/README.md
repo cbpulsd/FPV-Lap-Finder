@@ -212,6 +212,7 @@ to check the winning laps against. Template: [`assets/track-README-template.md`]
 | `--title TEXT` | `<folder> · <video>` | Overlay subtitle. `{total}` is replaced by the 3-lap total: `--title "RaceGOW6 Track 2 - {total}"`. |
 | `--overlay-scale F` | 1.0 | Size of the lap-time panel (OpenCV renderer), e.g. `0.7` for a smaller panel tucked into the corner. |
 | `--upscale SIZE` | off | Re-encode the finished clip at `4k`, `1440p`, `1080p` or `WxH` (lanczos, same frames, file name gets `_2160p` etc.). Adds no detail; a 4K upload gets YouTube's higher-bitrate encode. |
+| `--crossings F0,F1,F2,F3` | the tool's | The rank's 4 gate-crossing frames, checked by eye (start of lap 1, then each lap's end). Lap times, total and overlay come from them; `clipcheck` checks against them. For a rank whose recount disagrees only because a crossing is a few frames off. |
 | `--background` | `blur` | `blur` fills the black side bars (4:3 footage in a 16:9 frame) with a blurred, dimmed copy of the footage. `black` keeps the bars. |
 | `--blur-strength PX` | 40 | Blur radius of that background. |
 | `--music FILE\|auto` | off | Mix music under the clip. `auto` generates a fresh upbeat electronic track (random tempo, key and patterns; no licence issues). Off by default, so the clip keeps only its own audio. |

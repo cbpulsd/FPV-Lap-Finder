@@ -103,6 +103,12 @@ If the repo is a link and you're not inside it, clone it into a folder whose pat
      say AGREE.
    - If a rank fails, fix the cause and re-run, or move on to rank 4, 5... so the pilot still gets
      **3 clips that pass**. Say which ranks you skipped and why.
+   - A recount that disagrees only because a crossing is a few frames off is fixable. Sheet every
+     frame around **all four** crossings, pick the same event in each, and render that rank with
+     `--crossings F0,F1,F2,F3`. Use one event for all four; mixing your frames with the tool's
+     gives wrong times. Report the corrected times and that they were set by hand.
+   - The tool keeps at most 5 ranks. If fewer than the pilot asked for pass, say so rather than
+     padding with failed ranks, unless the pilot says to render them anyway.
 
 7. **Render each passing rank** with
    `<py> <fpv> render --work "<work>" --rank N --lead 10 --tail 10 --overlay-scale 0.7 --title "<track name> - {total}" --save-to "<footage>-clips"`.

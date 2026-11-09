@@ -107,7 +107,10 @@ For rank 1, and for every rank you might fall back to:
    re-anchoring. "Check before trusting" -> steps 1-3 decide.
 
 **Accept a rank** only if 1 and 2 pass and 3 agrees (or you explain a split-only difference). Otherwise
-fix the cause and re-run, or fall back to the next rank that passes, and say why.
+fix the cause and re-run, or fall back to the next rank that passes, and say why. When 1 and 2 pass
+and the only problem is crossings a few frames off, pin all four crossings by eye with one event
+(`sheet ... --step 1` around each) and render with `fpvlaps.py render --rank N --crossings F0,F1,F2,F3`.
+Then `clipcheck` checks the clip against those frames.
 
 ### 5. After rendering
 ```bash

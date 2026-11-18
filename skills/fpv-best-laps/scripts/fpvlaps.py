@@ -139,6 +139,12 @@ def main():
                     help="render: size of the lap-time panel relative to the default (OpenCV renderer), e.g. 0.7")
     ap.add_argument("--upscale", help="render: also re-encode the clip at this size, e.g. 4k, 1440p or 3840x2160 "
                                       "(same frames; for YouTube's higher-bitrate 4K encode)")
+    ap.add_argument("--laps", type=int, default=3, help="analyze/run: laps in each ranked result, e.g. 5 for the "
+                                                         "fastest 5 back-to-back clean laps (default 3, the RaceGOW result)")
+    ap.add_argument("--run", help="render: instead of a ranked best-3 window, every back-to-back clean lap in one video "
+                                  "from the first lap after a time, e.g. hdz_199@50 or hdz_199@0:50.7 (see report.md "
+                                  "'Every clean run')")
+    ap.add_argument("--max-laps", type=int, help="render --run: stop after this many laps (default: the whole run)")
     ap.add_argument("--crossings", help="render: hand-checked gate-crossing frames for --rank, e.g. 1328,1720,2117,2535 "
                                         "(start of lap 1, then each lap's end); lap times and total come from them")
     ap.add_argument("--save-to", help="render/run/save: also copy the finished clip here (e.g. on Windows). Must be "
@@ -225,7 +231,7 @@ def main():
         try:
             analyze(work, names, track=ch["track"], anchor=ch["anchor"], videos_dir=a.videos,
                     correct_lap=ch["correct_lap"], readme=ch, sectors=a.sectors,
-                    reference_video=ch["reference_video"])
+                    reference_video=ch["reference_video"], laps_per_result=a.laps)
         except RuntimeError as e:
             if a.command != "verify":
                 raise
@@ -242,7 +248,7 @@ def main():
         render(work, rank=a.rank, renderer=a.renderer, lead=a.lead, title=a.title,
                background=a.background, blur_strength=a.blur_strength, music=a.music,
                music_volume=a.music_volume, save_to=a.save_to, tail=a.tail, overlay_scale=a.overlay_scale,
-               upscale=a.upscale, crossings=a.crossings)
+               upscale=a.upscale, crossings=a.crossings, run=a.run, max_laps=a.max_laps)
 
 
 if __name__ == "__main__":

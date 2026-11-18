@@ -1,4 +1,5 @@
-"""Export the best 3-lap window: frame-accurate cut + left-aligned overlay (total + 3 lap times).
+"""Export a ranked window (best 3 laps, or N with analyze --laps N) or any clean run (--run): frame-accurate
+cut + left-aligned overlay (total + every lap time).
 
 Two interchangeable renderers produce the same layout:
   hyperframes — HTML/GSAP composition rendered by the HyperFrames CLI (needs Node/npx + ffmpeg/ffprobe)
@@ -11,6 +12,7 @@ import numpy as np
 import cv2
 from .config import ASSETS
 from .media import cut_clip, ffmpeg_exe, ffprobe_exe, env_with_tools, read_frames
+from .runs import parse_run, select_run
 
 HYPERFRAMES = "hyperframes@0.8.145"     # pinned for reproducible renders
 
@@ -27,21 +29,31 @@ def parse_crossings(s, n_laps):
     return cs
 
 
-def plan(work, rank, lead, tail=None, crossings=None):
-    """crossings: hand-checked gate frames (e.g. from fpv-laps-audit) replacing the tool's for this rank;
-    lap times and the total are recomputed from them."""
+def plan(work, rank, lead, tail=None, crossings=None, run=None, max_laps=None):
+    """The window to render: ranked best-3 window `rank`, or with run='VIDEO@TIME' every back-to-back clean
+    lap from the first lap after TIME (at most max_laps). crossings: hand-checked gate frames (e.g. from
+    fpv-laps-audit) replacing the tool's; lap times and the total are recomputed from them."""
     R = json.loads((Path(work) / "result.json").read_text(encoding="utf-8"))
-    if len(R["best"]) < rank:
-        raise SystemExit("No such result: fewer than %d valid 3-lap windows (see report.md)" % rank)
-    b = R["best"][rank - 1]
-    v = next(x for x in R["videos"] if x["name"] == b["video"])
     fps = R["fps"]
+    if run:
+        video, t_from = parse_run(run)
+        b = select_run(R, video, t_from, max_laps)
+        tag = f"run_{b['video']}_f{b['start']}"
+        what = f"run from {b['start'] / fps:.2f}s in {b['video']}"
+        print(f"  run: {b['n']} back-to-back clean laps in {b['video']} from {b['start'] / fps:.2f}s "
+              f"(stopped by: {b['stopped_by']})")
+    else:
+        if len(R["best"]) < rank:
+            raise SystemExit("No such result: fewer than %d valid 3-lap windows (see report.md)" % rank)
+        b = R["best"][rank - 1]
+        tag, what = f"rank{rank}", f"rank {rank} ({b['video']})"
+    v = next(x for x in R["videos"] if x["name"] == b["video"])
     tool = [b["laps"][0]["start"]] + [l["end"] for l in b["laps"]]
     if crossings:
         cs = parse_crossings(crossings, len(b["laps"]))
         if max(abs(c - t) for c, t in zip(cs, tool)) > fps:
-            raise SystemExit(f"--crossings {crossings}: more than 1 s from the tool's crossings {tool} for rank "
-                             f"{rank} ({b['video']}); check the rank and the frame numbers")
+            raise SystemExit(f"--crossings {crossings}: more than 1 s from the tool's crossings {tool} for "
+                             f"{what}; check the selection and the frame numbers")
         times = [round((e - s) / fps, 3) for s, e in zip(cs, cs[1:])]
         total = round((cs[-1] - cs[0]) / fps, 3)
     else:
@@ -51,8 +63,12 @@ def plan(work, rank, lead, tail=None, crossings=None):
     first = max(0, cs[0] - pad)
     last = min(int(v["seconds"] * fps) - 1, cs[-1] + pad_after)
     gates = [(c - first) / fps for c in cs]
+    n_laps = len(times)
+    many = f"LAP{'S' if n_laps != 1 else ''}"
+    heading = f"BEST {n_laps} CONSECUTIVE {many}" if not run else f"{n_laps} CONSECUTIVE {many}"
     return dict(R=R, best=b, video=v, fps=fps, first=first, n=last - first + 1, gates=gates,
-                times=times, total=total, crossings=cs, tool_crossings=tool)
+                times=times, total=total, crossings=cs, tool_crossings=tool, tag=tag, run=bool(run),
+                heading=heading)
 
 
 def active_area(src, first, n, samples=24, thr=24):
@@ -124,6 +140,17 @@ def _text(img, s, org, scale, color, weight):
     cv2.putText(img, s, org, cv2.FONT_HERSHEY_DUPLEX, scale, color, weight, cv2.LINE_AA)
 
 
+def lap_rows(n_laps, height_units):
+    """Lap rows that fit the panel: (rows shown, row pitch, text scale), all in 720p overlay units.
+    3 laps keep the original 52-unit rows; longer runs shrink rows down to 26 units, then scroll."""
+    avail = height_units - 96 - 16 - 236          # panel top offset, bottom margin, header + first row
+    if n_laps <= 1:
+        return 1, 52, 1.0
+    row = max(26.0, min(52.0, avail / (n_laps - 1)))
+    rows = min(n_laps, int(avail / row + 1e-6) + 1)     # + 1e-6: an exact fit must not lose a row to rounding
+    return rows, row, min(1.0, row / 52.0 + 0.15)
+
+
 def render_opencv(p, out, subtitle, scale=1.0):
     # OpenCV's Hershey fonts are ASCII-only: anything else (the default subtitle's "·") draws as "??"
     subtitle = "".join(c if ord(c) < 128 else "-" for c in subtitle)
@@ -136,8 +163,13 @@ def render_opencv(p, out, subtitle, scale=1.0):
                            "-pix_fmt", "yuv420p", "-c:a", "copy", "-movflags", "+faststart", str(out)],
                           stdin=subprocess.PIPE)
     G = p["gates"]
+    N = len(G) - 1                          # laps shown: 3 for a ranked window, any number for --run
     yellow, white, dim = (31, 210, 255), (255, 255, 255), (170, 170, 170)
-    x0, y0, pw, ph = int(16 * k), int(96 * k), int(268 * k), int(340 * k)
+    rows, row, f = lap_rows(N, H / k)
+    x0, y0, pw, ph = int(16 * k), int(96 * k), int(268 * k), int((236 + row * (rows - 1)) * k)
+    durs = [b - a for a, b in zip(G, G[1:])]
+    best = min(range(N), key=lambda n: durs[n])
+    heading = p.get("heading", "BEST 3 CONSECUTIVE LAPS")
     i = 0
     while True:
         ok, fr = cap.read()
@@ -149,20 +181,24 @@ def render_opencv(p, out, subtitle, scale=1.0):
         fr = cv2.addWeighted(ov, 0.78, fr, 0.22, 0)
         cv2.rectangle(fr, (x0, y0), (x0 + int(4 * k), y0 + ph), yellow, -1)
         lx = x0 + int(24 * k)
-        _text(fr, "BEST 3 CONSECUTIVE LAPS", (lx, y0 + int(30 * k)), 0.45 * k, yellow, 1)
+        _text(fr, heading, (lx, y0 + int(30 * k)), 0.45 * k, yellow, 1)
         _text(fr, subtitle[:34], (lx, y0 + int(52 * k)), 0.42 * k, dim, 1)
         _text(fr, "TOTAL", (lx, y0 + int(88 * k)), 0.42 * k, dim, 1)
-        tot = min(max(t - G[0], 0.0), G[3] - G[0])
-        _text(fr, f"{tot:.2f}s", (lx, y0 + int(140 * k)), 1.55 * k, yellow if t >= G[3] else white, 2)
-        for n in range(3):
-            ly = y0 + int((196 + 52 * n) * k)
+        done = t >= G[-1]
+        tot = min(max(t - G[0], 0.0), G[-1] - G[0])
+        _text(fr, f"{tot:.2f}s", (lx, y0 + int(140 * k)), 1.55 * k, yellow if done else white, 2)
+        cur = next((n for n in range(N) if G[n] <= t < G[n + 1]), N - 1 if done else 0)
+        top = min(max(cur - rows + 1, 0), N - rows)      # scroll so the lap being flown stays in view
+        for r, n in enumerate(range(top, top + rows)):
+            ly = y0 + int((196 + row * r) * k)
             lap = min(max(t - G[n], 0.0), G[n + 1] - G[n])
             active = G[n] <= t < G[n + 1]
-            col = white if t >= G[n] else dim
+            col = yellow if (done and p.get("run") and n == best) else white if t >= G[n] else dim
             if active:
-                cv2.rectangle(fr, (lx - int(10 * k), ly - int(28 * k)), (lx - int(7 * k), ly + int(10 * k)), yellow, -1)
-            _text(fr, f"LAP {n + 1}", (lx, ly), 0.5 * k, dim, 1)
-            _text(fr, f"{lap:.2f}s", (lx + int(84 * k), ly), 0.85 * k, col, 2)
+                cv2.rectangle(fr, (lx - int(10 * k), ly - int(28 * f * k)), (lx - int(7 * k), ly + int(10 * f * k)),
+                              yellow, -1)
+            _text(fr, f"LAP {n + 1}", (lx, ly), 0.5 * f * k, dim, 1)
+            _text(fr, f"{lap:.2f}s", (lx + int(84 * k), ly), 0.85 * f * k, col, 2)
         ff.stdin.write(fr.tobytes())
         i += 1
     ff.stdin.close()
@@ -212,12 +248,13 @@ def check_save_dir(dest, R):
     return d
 
 
-def save_copies(work, dest, rank=None):
-    """Copy rendered clips (one rank, or every render_rankN.json in <work>/export) to dest."""
+def save_copies(work, dest, rank=None, tag=None):
+    """Copy rendered clips (one rank or run tag, or every render_*.json in <work>/export) to dest."""
     work = Path(work)
     R = json.loads((work / "result.json").read_text(encoding="utf-8"))
     d = check_save_dir(dest, R)
-    metas = [work / "export" / f"render_rank{rank}.json"] if rank else sorted((work / "export").glob("render_rank*.json"))
+    tag = tag or (f"rank{rank}" if rank else None)
+    metas = [work / "export" / f"render_{tag}.json"] if tag else sorted((work / "export").glob("render_*.json"))
     outs = [Path(json.loads(m.read_text(encoding="utf-8"))["output"]) for m in metas if m.is_file()]
     outs = [o if o.is_file() else work / "export" / o.name for o in outs]   # "output" may be cwd-relative
     outs = [o for o in outs if o.is_file()]
@@ -232,9 +269,10 @@ def save_copies(work, dest, rank=None):
 
 def render(work, rank=1, renderer="auto", lead=1.0, title=None, keep_clip=False, background="blur",
            blur_strength=40, music=None, music_volume=-10.0, save_to=None, tail=None, overlay_scale=1.0,
-           upscale=None, crossings=None):
+           upscale=None, crossings=None, run=None, max_laps=None):
     work = Path(work)
-    p = plan(work, rank, lead, tail, crossings)
+    p = plan(work, rank, lead, tail, crossings, run, max_laps)
+    tag = p["tag"]
     if crossings:
         print(f"  crossings set by hand: {p['crossings']} (tool: {p['tool_crossings']}) -> "
               + " + ".join(f"{t:.2f}" for t in p["times"]) + f" = {p['total']:.2f}s")
@@ -244,7 +282,7 @@ def render(work, rank=1, renderer="auto", lead=1.0, title=None, keep_clip=False,
     src = p["video"]["path"]
     exp = work / "export"
     exp.mkdir(exist_ok=True)
-    p["clip"] = exp / f"clip_rank{rank}.mp4"
+    p["clip"] = exp / f"clip_{tag}.mp4"
     vf = None
     if background == "blur":
         area = active_area(src, p["first"], p["n"])
@@ -263,18 +301,27 @@ def render(work, rank=1, renderer="auto", lead=1.0, title=None, keep_clip=False,
     folder = Path(p["R"]["videos_dir"]).name if p["R"].get("videos_dir") else ""
     subtitle = title or " · ".join(s for s in (folder, p["video"]["name"]) if s)
     subtitle = subtitle.replace("{total}", f"{p['total']:.2f}s")     # e.g. --title "RaceGOW6 Track 2 - {total}"
-    # ranks after the first get a suffix: two windows in one video can share a total (overlapping laps)
-    out = exp / f"best3_laps_{p['video']['name']}_{p['total']:.2f}s{'' if rank == 1 else f'_rank{rank}'}.mp4"
+    if p["run"]:      # laps_run_ prefix: skipped as a recording, like best3_laps_ (media.list_videos)
+        out = exp / (f"laps_run_{p['video']['name']}_from{p['crossings'][0] / p['fps']:.1f}s_"
+                     f"{len(p['times'])}x_{p['total']:.2f}s.mp4")
+    else:             # ranks after the first get a suffix: two windows in one video can share a total
+        out = exp / (f"best{len(p['times'])}_laps_{p['video']['name']}_{p['total']:.2f}s"
+                     f"{'' if rank == 1 else f'_rank{rank}'}.mp4")
     use = renderer
     if renderer == "auto":
         use = "hyperframes" if hyperframes_ready() else "opencv"
         if use == "opencv":
             print("  HyperFrames needs npx + ffmpeg + ffprobe on PATH; using the OpenCV renderer")
+    if use == "hyperframes" and len(p["times"]) != 3:
+        if renderer != "auto":
+            raise SystemExit("The HyperFrames overlay shows exactly 3 laps; use --renderer opencv for this run.")
+        print(f"  the HyperFrames overlay shows exactly 3 laps; using the OpenCV renderer for {len(p['times'])}")
+        use = "opencv"
     if use == "hyperframes":
         if overlay_scale != 1.0:
             print("  --overlay-scale applies to the OpenCV renderer only; HyperFrames keeps its own layout")
         try:
-            render_hyperframes(p, out, subtitle, exp / f"hyperframes_rank{rank}")
+            render_hyperframes(p, out, subtitle, exp / f"hyperframes_{tag}")
         except subprocess.CalledProcessError:
             if renderer != "auto":
                 raise SystemExit("HyperFrames render failed (its message is above). Re-run with --renderer opencv.")
@@ -290,7 +337,7 @@ def render(work, rank=1, renderer="auto", lead=1.0, title=None, keep_clip=False,
         from .music import synth_track, mix_music
         secs = p["n"] / p["fps"]
         if music == "auto":
-            track = exp / f"music_rank{rank}.wav"
+            track = exp / f"music_{tag}.wav"
             mus = synth_track(secs, track)
             print(f"  music: generated track, seed {mus['seed']}, {mus['bpm']} bpm")
         else:
@@ -313,9 +360,10 @@ def render(work, rank=1, renderer="auto", lead=1.0, title=None, keep_clip=False,
     meta = dict(output=str(out), renderer=use, video=p["video"]["name"], source_frames=[p["first"], p["first"] + p["n"] - 1],
                 gates_clip_s=p["gates"], laps_s=p["times"], total_s=p["total"], crossings=p["crossings"],
                 crossings_by_hand=bool(crossings), background="blur" if vf else "black",
-                music=mus, size=list(size) if size else [p["w"], p["h"]])
-    (exp / f"render_rank{rank}.json").write_text(json.dumps(meta, indent=1), encoding="utf-8")
+                music=mus, size=list(size) if size else [p["w"], p["h"]],
+                selection=dict(run=run, max_laps=max_laps) if p["run"] else dict(rank=rank))
+    (exp / f"render_{tag}.json").write_text(json.dumps(meta, indent=1), encoding="utf-8")
     print(f"  exported {out}  ({use})")
     if save_to:
-        save_copies(work, save_to, rank)
+        save_copies(work, save_to, tag=tag)
     return out

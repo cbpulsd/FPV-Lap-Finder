@@ -9,6 +9,7 @@ from .config import (OCR_STEP, DTW_CANDIDATE_COST, CLEAN_COST_MIN, CLEAN_COST_MA
                      LAP_MAX_FACTOR, STALL_MOTION, STALL_SECS, FLIGHT_MOTION, LAPS_PER_RESULT, DTW_STEP,
                      SHORT_LOOP_RATIO, LONG_LOOP_RATIO, MAX_REFERENCE_TRIES, CHAIN_MIN)
 from .extract import load
+from .runs import best_windows, clean_runs
 from .laps import fine_desc, dtw_desc, lap_matches, refine, stalled, window
 from .report import write_reports
 from . import sectors as sectors_mod
@@ -153,23 +154,6 @@ def classify(v, laps, P, clean_thr):
         l["reason"] = "; ".join(why)
 
 
-def best_windows(all_laps, n=LAPS_PER_RESULT, top=5):
-    """Sliding window of n consecutive clean laps (each lap starts where the previous ended)."""
-    res = []
-    by_video = {}
-    for l in all_laps:
-        by_video.setdefault(l["video"], []).append(l)
-    for name, L in by_video.items():
-        L.sort(key=lambda l: l["start"])
-        for i in range(len(L) - n + 1):
-            w = L[i:i + n]
-            if all(l["clean"] for l in w) and all(w[k]["end"] == w[k + 1]["start"] for k in range(n - 1)):
-                res.append(dict(video=name, laps=w, total=round(sum(l["time"] for l in w), 3),
-                                start=w[0]["start"], end=w[-1]["end"]))
-    res.sort(key=lambda r: r["total"])
-    return res[:top]
-
-
 def chain_ratio(vids, laps_by_video, P):
     """Share of back-to-back laps (same armed segment, less than half a lap apart) that share their
     crossing. With a reference that starts and ends at the start gate, consecutive laps chain; with
@@ -280,11 +264,14 @@ def track_readme_info(readme):
 
 
 def analyze(work, names, track=None, anchor=None, videos_dir=None, correct_lap=None, readme=None, sectors=None,
-            reference_video=None, log=print):
+            reference_video=None, log=print, laps_per_result=LAPS_PER_RESULT):
     """`readme`: what trackdir.choose_reference found (README path, demo, how the reference was chosen),
     recorded in result.json and report.md. `sectors`: the --sectors spec (count or reference frames).
     `reference_video`: {video, path} of a video the pilot knows holds a correct lap; calibration takes
-    its reference lap from that video only."""
+    its reference lap from that video only. `laps_per_result`: laps in each ranked window (`--laps N`;
+    3 = the RaceGOW result)."""
+    if laps_per_result < 1:
+        raise SystemExit("--laps must be 1 or more")
     vids = load_all(work, names, log)
     pool = vids                                # videos the reference lap may come from
     fps = vids[0]["fps"]
@@ -359,20 +346,20 @@ def analyze(work, names, track=None, anchor=None, videos_dir=None, correct_lap=N
         save_profile(work, ref, T, wins)
 
     sector_info = sectors_mod.split(vids, all_laps, ref, T, sectors, log)
-    windows = best_windows(all_laps)
+    windows = best_windows(all_laps, n=laps_per_result)
     for w in windows:                          # flag windows that need a human/agent look before trusting
         w["warnings"] = [f"lap {i + 1} ({l['time']:.2f}s) is >10% faster than the typical {typical:.2f}s lap: "
                          f"check the crossings sheet (missed gate / re-flown gate?)"
                          for i, l in enumerate(w["laps"]) if l["time"] < 0.9 * typical]
     result = dict(videos_dir=str(Path(videos_dir).resolve()) if videos_dir else None,
-                  fps=fps, laps_per_result=LAPS_PER_RESULT, lap_period_s=P, clean_cost_threshold=clean_thr,
+                  fps=fps, laps_per_result=laps_per_result, lap_period_s=P, clean_cost_threshold=clean_thr,
                   typical_lap_s=typical, chain_ratio=chain, warnings=warnings,
                   track_profile=str(Path(track).resolve()) if track else None,
                   track_readme=track_readme_info(readme),
                   reference=ref, videos=[dict(name=v["name"], path=v["video"], seconds=v["n"] / v["fps"],
                                                armed_segments=v["segments"], arm_source=v["arm_source"])
                                           for v in vids],
-                  laps=all_laps, best=windows, sectors=sector_info)
+                  laps=all_laps, best=windows, runs=clean_runs(all_laps), sectors=sector_info)
     (Path(work) / "result.json").write_text(json.dumps(result, indent=1), encoding="utf-8")
     write_reports(work, result, log)
     return result

@@ -112,6 +112,12 @@ and the only problem is crossings a few frames off, pin all four crossings by ey
 (`sheet ... --step 1` around each) and render with `fpvlaps.py render --rank N --crossings F0,F1,F2,F3`.
 Then `clipcheck` checks the clip against those frames.
 
+**Runs of any length** (`fpvlaps.py render --run VIDEO@TIME`): `context`, `recount` and `clipcheck` take the
+same `--run VIDEO@TIME [--max-laps N]` instead of `--rank`, and write `sheets/run_<video>_f<frame>_*.jpg`.
+Audit every crossing of the run the same way; a long run has more crossings where a crash or a missed
+gate can hide. If you use a recount template from a flying lap and the run's first crossing is a straight
+approach after a launch (or the other way round), judge that crossing with a matching template.
+
 ### 5. After rendering
 ```bash
 <audit> clipcheck <work> --rank N     # (B) clip frames at the overlay's gate times = analysed crossings

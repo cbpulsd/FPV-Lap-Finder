@@ -5,7 +5,7 @@ SKILL_DIR = Path(__file__).resolve().parents[2]
 ASSETS = SKILL_DIR / "assets"
 
 # ---- race rules (fixed) ----------------------------------------------------
-LAPS_PER_RESULT = 3          # the result is always exactly 3 consecutive clean laps
+LAPS_PER_RESULT = 3          # default laps per ranked result (RaceGOW: 3); analyze --laps N changes it per run
 
 # ---- feature extraction ----------------------------------------------------
 THUMB_W, THUMB_H = 80, 60    # per-frame picture thumbnail (all later vision runs on these)

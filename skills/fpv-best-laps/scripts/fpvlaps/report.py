@@ -6,6 +6,7 @@ import numpy as np
 import cv2
 from .history import consistency_lines, history_link_for, link_block
 from .media import read_frame_set
+from .runs import clean_runs
 from .sectors import sector_lines
 
 OFFSETS = list(range(-24, 13, 6))   # frames around a crossing shown in the sheets
@@ -32,6 +33,29 @@ def crossing_sheet(video_path, box, frames, out, title):
     head = np.zeros((28, rows[0].shape[1], 3), np.uint8)
     cv2.putText(head, title, (6, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
     cv2.imwrite(str(out), np.vstack([head] + rows), [cv2.IMWRITE_JPEG_QUALITY, 85])
+
+
+def run_lines(R):
+    """report.md section: every run of 2+ back-to-back clean laps, so no stretch of good flying is lost."""
+    fps = R["fps"]
+    runs = R.get("runs")
+    if runs is None:                              # result.json from before runs were recorded
+        runs = clean_runs(R["laps"])
+    multi = [r for r in runs if r["n"] >= 2]
+    singles = sum(1 for r in runs if r["n"] == 1)
+    if not multi:
+        return []
+    lines = ["## Every clean run", "",
+             "Back-to-back clean laps of any length. Render one with "
+             "`fpvlaps.py render --run VIDEO@SECONDS` (the run starting with the first lap after that time).", "",
+             "| Video | From | Laps | Lap times | Total | Avg | Best |", "|---|---|---|---|---|---|---|"]
+    for r in multi:
+        lines.append(f"| {r['video']} | {r['start'] / fps:.2f}s | {r['n']} | "
+                     + " / ".join(f"{t:.2f}" for t in r["times"])
+                     + f" | {r['total']:.2f}s | {r['avg_lap']:.2f}s | {r['best_lap']:.2f}s |")
+    if singles:
+        lines.append(f"\nPlus {singles} single clean lap{'s' if singles != 1 else ''} between rejected laps.")
+    return lines + [""]
 
 
 def write_reports(work, R, log=print):
@@ -67,7 +91,8 @@ def write_reports(work, R, log=print):
                        f"Rank {k}: {b['video']} total {b['total']:.2f}s - each row one gate crossing (X), all rows should match")
 
     clean = [l for l in R["laps"] if l["clean"]]
-    lines = ["# FPV best 3 consecutive laps", ""]
+    N = R.get("laps_per_result", 3)
+    lines = [f"# FPV best {N} consecutive laps", ""]
     if R["videos_dir"]:
         lines += [f"Videos: `{R['videos_dir']}` ({len(R['videos'])} files)", ""]
     tr = R.get("track_readme") or {}
@@ -102,8 +127,9 @@ def write_reports(work, R, log=print):
                          + f" | {r['start']} -> {r['end']} | {r['start'] / fps:.2f}s -> {r['end'] / fps:.2f}s |"
                          + (" ⚠ check" if r.get("warnings") else ""))
     else:
-        lines += ["## No result", "", "No video contains 3 consecutive clean laps."]
-    lines += [""] + sector_lines(R) + consistency_lines(R)
+        lines += ["## No result", "", f"No video contains {N} consecutive clean laps."
+                  + (" The \"Every clean run\" table below shows the longest runs there are." if N > 1 else "")]
+    lines += [""] + run_lines(R) + sector_lines(R) + consistency_lines(R)
     lines += ["## Session summary", "",
               f"- Lap period (track): {R['lap_period_s']:.2f}s; typical clean lap {R['typical_lap_s']:.2f}s; "
               f"clean laps: {len(clean)} of {len(R['laps'])}; back-to-back laps chained: {R.get('chain_ratio', 1.0):.0%}",

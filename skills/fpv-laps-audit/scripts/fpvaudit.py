@@ -18,6 +18,7 @@ numbers here don't depend on fpvlaps' frame reader.
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -142,6 +143,20 @@ def rank_crossings(R, rank):
     return b, [b["laps"][0]["start"]] + [l["end"] for l in b["laps"]]
 
 
+def target(a, R):
+    """(window, crossings, file tag, label) for --rank N, or --run VIDEO@TIME (every back-to-back clean lap
+    from the first lap after TIME, as fpvlaps render --run picks it)."""
+    if getattr(a, "run", None):
+        use_fpvlaps()
+        from fpvlaps.runs import parse_run, select_run
+        video, t = parse_run(a.run)
+        r = select_run(R, video, t, getattr(a, "max_laps", None))
+        return (r, r["crossings"], f"run_{r['video']}_f{r['start']}",
+                f"Run {r['video']} from {r['start'] / R['fps']:.2f}s ({r['n']} laps)")
+    b, cs = rank_crossings(R, a.rank)
+    return b, cs, f"rank{a.rank}", f"Rank {a.rank}"
+
+
 def video_path(R, name):
     v = next((v for v in R["videos"] if v["name"] == name), None)
     if v is None:
@@ -223,7 +238,7 @@ def ffmpeg_color(path, t, w=320):
 
 def cmd_probe(a):
     vids = sorted(p for p in Path(a.dir).iterdir() if p.suffix.lower() in VIDEO_EXT and p.is_file()
-                  and not p.name.startswith((".", "best3_laps_")))
+                  and not p.name.startswith(".") and not re.match(r"(best\d+_laps_|laps_run_)", p.name))
     if not vids:
         sys.exit(f"no videos in {a.dir}")
     rows, flags, infos = [], [], {}
@@ -464,7 +479,7 @@ def cmd_recur(a):
 
 def cmd_context(a):
     R = load_result(a.work)
-    b, cs = rank_crossings(R, a.rank)
+    b, cs, tag, what = target(a, R)
     path, fps, box = video_path(R, b["video"]), R["fps"], pic_box(a.work, b["video"])
     offs = [int(round(t * fps)) for t in np.arange(-a.pre, a.post + 1e-9, a.every)]
     want = {c + o for c in cs for o in offs}
@@ -480,12 +495,12 @@ def cmd_context(a):
         rows.append(np.hstack(tiles))
     h = min(r.shape[0] for r in rows)
     sheet = title_bar(np.vstack([r[:h] for r in rows]),
-                      f"Rank {a.rank} {b['video']} {b['total']:.2f}s: each row a crossing, {-a.pre:+.1f}s..{a.post:+.1f}s. "
+                      f"{what} {b['video']} {b['total']:.2f}s: each row a crossing, {-a.pre:+.1f}s..{a.post:+.1f}s. "
                       "Look for tumbles, stats screen, grass/sky, re-flown gate.")
-    out = Path(a.work) / "sheets" / f"rank{a.rank}_context.jpg"
+    out = Path(a.work) / "sheets" / f"{tag}_context.jpg"
     out.parent.mkdir(exist_ok=True)
     cv2.imwrite(str(out), sheet, [cv2.IMWRITE_JPEG_QUALITY, 85])
-    print(f"{out}  rank {a.rank}: {b['video']} crossings {cs}")
+    print(f"{out}  {what}: {b['video']} crossings {cs}")
     print("A crossing row that ends in a tumble / stats screen / ground view is a crash at the gate: the lap it "
           "ends is not clean even if laps.csv says so (motion-only arming can't see it).")
 
@@ -506,7 +521,7 @@ def hires_desc(fr, box):
 
 def cmd_recount(a):
     R = load_result(a.work)
-    b, cs = rank_crossings(R, a.rank)
+    b, cs, tag, what = target(a, R)
     fps = R["fps"]
     if a.template:
         tname, tf = a.template.rsplit(":", 1)
@@ -553,7 +568,7 @@ def cmd_recount(a):
     tool_laps = [(e - s) / fps for s, e in zip(cs, cs[1:])]
     new_laps = [(e - s) / fps for s, e in zip(aligned, aligned[1:])]
     d_tot = (aligned[-1] - aligned[0]) - (cs[-1] - cs[0])
-    print(f"\nrank {a.rank} {b['video']}  template {tname}:{tf}")
+    print(f"\n{what} {b['video']}  template {tname}:{tf}")
     print("  tool:    " + " / ".join(f"{x:.2f}" for x in tool_laps) + f"  = {sum(tool_laps):.2f}s")
     print("  recount: " + " / ".join(f"{x:.2f}" for x in new_laps) + f"  = {sum(new_laps):.2f}s")
     tol = max(3, int(round(0.05 * fps)))
@@ -570,10 +585,10 @@ def cmd_recount(a):
         rows.append(np.hstack([label(tiles_src[k + o].copy() if (k + o) in tiles_src else np.zeros((150, 200, 3), np.uint8),
                                      f"{k + o}" + (" X" if o == 0 else ""), o == 0) for o in o2]))
     h = min(r.shape[0] for r in rows)
-    out = Path(a.work) / "sheets" / f"rank{a.rank}_recount.jpg"
+    out = Path(a.work) / "sheets" / f"{tag}_recount.jpg"
     out.parent.mkdir(exist_ok=True)
     cv2.imwrite(str(out), title_bar(np.vstack([r[:h] for r in rows]),
-                                    f"Rank {a.rank} recount: aligned crossings (X), every {step} frame(s). Same event in every row?"),
+                                    f"{what} recount: aligned crossings (X), every {step} frame(s). Same event in every row?"),
                 [cv2.IMWRITE_JPEG_QUALITY, 85])
     print(f"  sheet: {out}")
 
@@ -589,14 +604,15 @@ def centre_gray(fr):
 
 def cmd_clipcheck(a):
     R = load_result(a.work)
-    b, cs = rank_crossings(R, a.rank)
-    mpath = Path(a.work) / "export" / f"render_rank{a.rank}.json"
+    b, cs, tag, what = target(a, R)
+    mpath = Path(a.work) / "export" / f"render_{tag}.json"
     if not mpath.exists():
-        sys.exit(f"{mpath} not found: render rank {a.rank} first")
+        sys.exit(f"{mpath} not found: render {what} first")
     meta = json.loads(mpath.read_text(encoding="utf-8"))
-    if meta.get("crossings_by_hand"):          # rendered with --crossings: check against those frames
+    if meta.get("crossings"):                  # what was rendered (--crossings by hand, --max-laps)
         cs = meta["crossings"]
-        print(f"  crossings set by hand at render: {cs}")
+        if meta.get("crossings_by_hand"):
+            print(f"  crossings set by hand at render: {cs}")
     clip = Path(meta["output"])
     if not clip.exists():
         clip = Path(a.work) / "export" / clip.name
@@ -625,7 +641,7 @@ def cmd_clipcheck(a):
     print("  IN SYNC: the overlay's gate times show the analysed crossing frames" if ok else
           "  OUT OF SYNC / CHECK: the clip's frames at the overlay's gate times are not the analysed crossings "
           "(source container timing vs frame numbering?). Don't publish until resolved.")
-    last = Path(a.work) / "sheets" / f"rank{a.rank}_lastframe.jpg"
+    last = Path(a.work) / "sheets" / f"{tag}_lastframe.jpg"
     last.parent.mkdir(exist_ok=True)
     subprocess.run([ffmpeg_exe(), "-v", "error", "-y", "-sseof", "-0.1", "-i", str(clip), "-frames:v", "1", str(last)])
     print(f"  look at {last}: the overlay total and lap times must equal report.md" if last.exists() else
@@ -675,13 +691,18 @@ def main():
     p = sp.add_parser("period"); p.add_argument("work"); p.add_argument("--videos", help="comma-separated names")
     p = sp.add_parser("recur"); p.add_argument("work"); p.add_argument("at", help="VIDEO:FRAME")
     p.add_argument("--thr", type=float, default=0.5)
-    p = sp.add_parser("context"); p.add_argument("work"); p.add_argument("--rank", type=int, default=1)
+    def pick(p):
+        p.add_argument("--rank", type=int, default=1)
+        p.add_argument("--run", help="instead of --rank: every back-to-back clean lap in one video from the first lap "
+                                     "after a time, e.g. hdz_199@50 (as fpvlaps render --run)")
+        p.add_argument("--max-laps", type=int, help="with --run: at most this many laps")
+    p = sp.add_parser("context"); p.add_argument("work"); pick(p)
     p.add_argument("--pre", type=float, default=1.0); p.add_argument("--post", type=float, default=2.0)
     p.add_argument("--every", type=float, default=0.25)
-    p = sp.add_parser("recount"); p.add_argument("work"); p.add_argument("--rank", type=int, default=1)
+    p = sp.add_parser("recount"); p.add_argument("work"); pick(p)
     p.add_argument("--template", help="VIDEO:FRAME of a crossing you confirmed by eye (default: tool's reference start)")
     p.add_argument("--search", type=float, default=0.35, help="seconds searched around each tool crossing")
-    p = sp.add_parser("clipcheck"); p.add_argument("work"); p.add_argument("--rank", type=int, default=1)
+    p = sp.add_parser("clipcheck"); p.add_argument("work"); pick(p)
     p = sp.add_parser("chain"); p.add_argument("work")
     a = ap.parse_args()
     {"remux": cmd_remux, "probe": cmd_probe, "sheet": cmd_sheet, "period": cmd_period, "recur": cmd_recur,

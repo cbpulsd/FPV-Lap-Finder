@@ -179,10 +179,11 @@ def sector_lines(R, top=10):
               + ", ".join(f"S{k + 1} {b['video']} @ {b['start'] / fps:.1f}s" for k, b in enumerate(S["best_lap"]))
               + ".", ""]
     if rank1 and all(l.get("sectors") for l in rank1):
-        lost = [sum(l["sectors"][k] for l in rank1) - 3 * S["best"][k] for k in range(n)]
+        m = len(rank1)
+        lost = [sum(l["sectors"][k] for l in rank1) - m * S["best"][k] for k in range(n)]
         k = int(np.argmax(lost))
-        lines += [f"In the best-3 laps, most time vs the best sectors is lost in **S{k + 1}** "
-                  f"(+{lost[k]:.2f}s over 3 laps; " + ", ".join(f"S{j + 1} +{t:.2f}s" for j, t in enumerate(lost))
+        lines += [f"In the best-{m} laps, most time vs the best sectors is lost in **S{k + 1}** "
+                  f"(+{lost[k]:.2f}s over {m} laps; " + ", ".join(f"S{j + 1} +{t:.2f}s" for j, t in enumerate(lost))
                   + ").", ""]
     lines += ["Sector boundary views: `sheets/sectors.jpg` (move them with `--sectors F1,F2,...`, reference-lap "
               "frames, saved in track.json).", ""]

@@ -48,6 +48,9 @@ can trigger the "reference lap looks wrong" warning.
 .fpvlaps-venv/bin/python <skill-dir>/scripts/fpvlaps.py analyze --videos "<folder>" --work "<work dir>"
 ```
 
+- `--laps N` ranks windows of N back-to-back clean laps instead of 3, when the pilot asks for longer
+  (or shorter) runs. Everything downstream follows N: report, crossing sheets (N + 1 rows), overlay,
+  clip name `bestN_laps_...`, `--crossings` (N + 1 frames). RaceGOW results and `verify` are 3 laps.
 - `--lap-range LO-HI` (seconds) limits the lap periods considered. Use it when the detected lap period
   (in `report.md`) is about 2x or 0.5x the pilot's real lap; small home tracks lap in ~5 s, big outdoor
   ones in 10-30 s. `--set NAME=VALUE` overrides any constant in `scripts/fpvlaps/config.py` for one
@@ -142,7 +145,17 @@ next rank whose sheet is consistent, render it with `--rank N`, and say why rank
 
 ```bash
 .fpvlaps-venv/bin/python <skill-dir>/scripts/fpvlaps.py render --work "<work dir>" [--rank 1] [--renderer auto|hyperframes|opencv] [--background blur|black] [--music FILE|auto] [--lead 1 --tail S] [--title "... {total}"] [--overlay-scale 0.7] [--upscale 4k] [--crossings F0,F1,F2,F3]
+.fpvlaps-venv/bin/python <skill-dir>/scripts/fpvlaps.py render --work "<work dir>" --run VIDEO@TIME [--max-laps N] [same options]
 ```
+
+**Every lap, not just the best 3.** `report.md` has an "Every clean run" table: each stretch of
+back-to-back clean laps, of any length, per video. `render --run hdz_199@50` exports the run that starts
+with the first lap after 50 s in hdz_199, continued while the next lap is clean and starts on the frame
+the previous one ended (`--max-laps N` caps it). The overlay lists every lap (rows shrink for long runs,
+then scroll to the lap being flown) and marks the fastest one at the end; the clip is
+`laps_run_<video>_from<start>s_<N>x_<total>s.mp4`. If the first lap after the time isn't clean, render
+says why and where the next clean lap starts. `--crossings` takes N + 1 frames for a run. Audit a run
+with the same selection: `fpvaudit.py context|recount|clipcheck <work> --run hdz_199@50`.
 
 Always pass `--rank` explicitly (the rank you verified). Rendering takes minutes, so run it in the
 background if your agent can: HyperFrames took 5-12 min for a 33 s clip on a CPU-only machine, and

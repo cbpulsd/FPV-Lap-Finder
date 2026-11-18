@@ -46,8 +46,12 @@ Claude then:
   `<footage folder>-clips`.
 
 It comes back to you if something blocks it or needs your call, for example two quads in one folder.
-Optional extras you can add to the prompt: a track name for the overlay, how many seconds before and
-after the laps, and 4K. The first run takes about 15 minutes per 30-40 minutes of footage. The full
+
+**More laps or more clips:** change the numbers in the first line. "Find my 5 best 3-lap runs" gives
+five clips; "Find my 3 best 5-lap runs" times runs of five back-to-back laps, with every lap on the
+overlay. The tool ranks up to 5 runs. To time every lap of one stretch instead, ask for it: *"Time every
+lap in hdz_199 from 0:50"*. Optional extras you can add to the prompt: a track name for the overlay, how
+many seconds before and after the laps, and 4K. The first run takes about 15 minutes per 30-40 minutes of footage. The full
 workflow Claude follows is in [CLAUDE.md](CLAUDE.md).
 
 ## Skills

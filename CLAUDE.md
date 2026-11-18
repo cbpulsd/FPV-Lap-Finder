@@ -12,6 +12,12 @@ Files to scan: <all, or e.g. hdz_132 to hdz_149>
 Good lap: <file name> starting at <time, e.g. 1:05.8 or 65.8>
 ```
 
+The first line carries two numbers: **how many runs** (clips) and **laps per run**. "Find my 5 best
+5-lap runs" means five clips of five back-to-back laps each; "best 5 (not 3)" alone means five clips
+of the usual 3 laps. If the pilot asks for runs of more (or fewer) than 3 laps anywhere in the prompt
+("5-lap runs", "5 consecutive laps", "Laps per run: 5"), scale the whole job to that number N: see
+**Laps per run** below.
+
 When you get that prompt (or anything like it), follow **Run a best-laps job** below from start to
 finish. Do the work yourself. Stop and ask the pilot only for the reasons listed under **When to stop
 and ask**.
@@ -27,7 +33,8 @@ and ask**.
 | Files to scan | All videos in the footage folder |
 | Good lap: file + start time | **Ask**: required. It's the anchor every lap is matched against |
 | Track name for the overlay | The footage folder's name, ASCII only (e.g. `racegow6-track2`) |
-| Clips | Ranks 1, 2 and 3; 10 s before and 10 s after the laps; overlay at 0.7 size; native resolution (`--upscale 4k` only if asked) |
+| Laps per run (N) | 3, the RaceGOW result. Any other number the pilot asks for: `--laps N` in step 5 |
+| Clips | Ranks 1, 2 and 3 (the tool ranks at most 5); 10 s before and 10 s after the laps; overlay at 0.7 size; native resolution (`--upscale 4k` only if asked) |
 | Where clips go | A new folder next to the footage: `<footage folder>-clips`. **Never** inside the footage folder |
 
 If the repo is a link and you're not inside it, clone it into a folder whose path has no spaces (e.g.
@@ -89,7 +96,7 @@ If the repo is a link and you're not inside it, clone it into a folder whose pat
      add `--lap-range LO-HI` around the real lap in step 5.
 
 5. **Analyse**: run `<py> <fpv> analyze --videos "<batch>" --anchor <file>:<frame> --no-readme`, adding
-   `--lap-range` if needed.
+   `--lap-range` if needed, and `--laps N` when the pilot asked for N-lap runs (N ≠ 3).
    - If two gates are passed within about 0.5 s of each other, add `--set REFINE_SEARCH=20`.
    - If few laps come out clean and `laps.csv` rejects most of them only for a cost just over 0.38,
      re-run with `--set CLEAN_COST_MAX=0.45`. Say so in the report; the audit decides.
@@ -104,9 +111,10 @@ If the repo is a link and you're not inside it, clone it into a folder whose pat
    - If a rank fails, fix the cause and re-run, or move on to rank 4, 5... so the pilot still gets
      **3 clips that pass**. Say which ranks you skipped and why.
    - A recount that disagrees only because a crossing is a few frames off is fixable. Sheet every
-     frame around **all four** crossings, pick the same event in each, and render that rank with
-     `--crossings F0,F1,F2,F3`. Use one event for all four; mixing your frames with the tool's
-     gives wrong times. Report the corrected times and that they were set by hand.
+     frame around **all** crossings (N + 1 of them: four for 3 laps), pick the same event in each, and
+     render that rank with `--crossings F0,F1,...` (N + 1 frames). Use one event for all of them;
+     mixing your frames with the tool's gives wrong times. Report the corrected times and that they
+     were set by hand.
    - The tool keeps at most 5 ranks. If fewer than the pilot asked for pass, say so rather than
      padding with failed ranks, unless the pilot says to render them anyway.
 
@@ -124,6 +132,30 @@ If the repo is a link and you're not inside it, clone it into a folder whose pat
      the organiser's flythrough, and official timing.
    - Then offer what's next: other ranks, a different clip length, 4K, or deleting the `-mp4` copies
      once the pilot is happy.
+
+### Laps per run
+
+When the pilot asks for runs of N laps (e.g. "my 3 best 5-lap runs"), everything scales to N:
+
+- `analyze --laps N` ranks the fastest windows of N back-to-back clean laps (up to 5 ranks).
+  `report.md` says "best N consecutive laps", and each crossings sheet has N + 1 rows.
+- Audit every one of the N + 1 crossings per rank, exactly as for 3 laps: same gate in every row, no
+  crash at any crossing, `recount` must AGREE. A longer run has more places for a crash or a missed
+  gate to hide.
+- Render the same way. The overlay reads "BEST N CONSECUTIVE LAPS" and lists all N laps, and the clip
+  is `bestN_laps_<video>_<total>s.mp4`. `--crossings` takes N + 1 frames.
+- If no video has N clean laps in a row, `report.md` says so. Its "Every clean run" table shows the
+  longest runs there are: tell the pilot, and offer those (or fewer laps) instead of guessing.
+- The RaceGOW leaderboard and `verify` stay 3-lap. Say that an N-lap total isn't a RaceGOW result.
+
+### Timing every lap of a stretch
+
+When the pilot wants every lap timed ("all the laps in hdz_199 after 50 s"), not just the best 3: after
+step 5, find the stretch in the "Every clean run" table of `report.md`, audit it with
+`<audit> context|recount "<work>" --run <file>@<seconds>`, render it with
+`<fpv> render --work "<work>" --run <file>@<seconds> ...` (same options as step 7), then
+`<audit> clipcheck "<work>" --run <file>@<seconds>`. Report every lap time, the total and where the run
+stopped (and why: a rejected lap, a crash, the end of the flight).
 
 ### When to stop and ask
 

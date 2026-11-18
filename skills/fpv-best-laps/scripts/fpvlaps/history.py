@@ -18,6 +18,7 @@ import re
 import statistics
 from datetime import datetime
 from pathlib import Path
+from .runs import best_windows
 
 LINK_START, LINK_END = "<!-- history -->", "<!-- /history -->"
 MIN_YEAR = 2015                          # goggles without a real-time clock write default dates
@@ -35,13 +36,15 @@ def session_stats(R):
     laps = R["laps"]
     C = sorted(l["time"] for l in laps if l["clean"])
     n = len(laps)
+    # "best 3" across sessions stays a 3-lap total even when a session was ranked with analyze --laps N
+    b3 = R.get("best") if R.get("laps_per_result", 3) == 3 else best_windows(laps, n=3, top=1)
     s = dict(laps=n, clean=len(C), clean_pct=len(C) / n * 100 if n else 0.0,
              bad_pct=(n - len(C)) / n * 100 if n else 0.0,
              crashes=sum(is_crash(l) for l in laps),
              best_lap=C[0] if C else None, median_lap=statistics.median(C) if C else None,
              std_lap=statistics.stdev(C) if len(C) > 1 else None,
-             best3=R["best"][0]["total"] if R.get("best") else None,
-             best3_video=R["best"][0]["video"] if R.get("best") else None)
+             best3=b3[0]["total"] if b3 else None,
+             best3_video=b3[0]["video"] if b3 else None)
     s["crash_pct"] = s["crashes"] / n * 100 if n else 0.0
     s["gap_lap"] = s["median_lap"] - s["best_lap"] if C else None
     return s

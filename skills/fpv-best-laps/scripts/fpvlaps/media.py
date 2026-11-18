@@ -1,5 +1,6 @@
 """Video discovery, ffmpeg lookup and frame access."""
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -7,11 +8,15 @@ import cv2
 from .config import VIDEO_EXTS
 
 
+def is_own_clip(name):
+    """This tool's exported clips (best3_laps_*, best5_laps_*, laps_run_*) and hidden files: never recordings,
+    even when kept next to the footage."""
+    return name.startswith(".") or bool(re.match(r"(best\d+_laps_|laps_run_)", name))
+
+
 def list_videos(folder):
     folder = Path(folder)
-    # best3_laps_* are this tool's own exported clips, often kept next to the footage
-    vids = sorted(p for p in folder.iterdir() if p.suffix.lower() in VIDEO_EXTS
-                  and not p.name.startswith((".", "best3_laps_")))
+    vids = sorted(p for p in folder.iterdir() if p.suffix.lower() in VIDEO_EXTS and not is_own_clip(p.name))
     if not vids:
         raise SystemExit(f"No videos ({', '.join(VIDEO_EXTS)}) found in {folder}")
     return vids

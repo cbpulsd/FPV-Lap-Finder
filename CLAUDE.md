@@ -33,6 +33,7 @@ and ask**.
 | Files to scan | All videos in the footage folder |
 | Good lap: file + start time | **Ask**: required. It's the anchor every lap is matched against |
 | Track name for the overlay | The footage folder's name, ASCII only (e.g. `racegow6-track2`) |
+| Track layout | If the track is a RaceGOW track with a number (from the prompt or the folder name, e.g. "Track 4"), or the pilot gives a GeddyV track-visualizer link: `--track-data racegow:N` (see **Track layout** below). Otherwise none |
 | Laps per run (N) | 3, the RaceGOW result. Any other number the pilot asks for: `--laps N` in step 5 |
 | Clips | Ranks 1, 2 and 3 (the tool ranks at most 5); 10 s before and 10 s after the laps; overlay at 0.7 size; native resolution (`--upscale 4k` only if asked) |
 | Where clips go | A new folder next to the footage: `<footage folder>-clips`. **Never** inside the footage folder |
@@ -96,7 +97,8 @@ If the repo is a link and you're not inside it, clone it into a folder whose pat
      add `--lap-range LO-HI` around the real lap in step 5.
 
 5. **Analyse**: run `<py> <fpv> analyze --videos "<batch>" --anchor <file>:<frame> --no-readme`, adding
-   `--lap-range` if needed, and `--laps N` when the pilot asked for N-lap runs (N ≠ 3).
+   `--lap-range` if needed, `--laps N` when the pilot asked for N-lap runs (N ≠ 3), and
+   `--track-data racegow:N` when the track layout is known.
    - If two gates are passed within about 0.5 s of each other, add `--set REFINE_SEARCH=20`.
    - If few laps come out clean and `laps.csv` rejects most of them only for a cost just over 0.38,
      re-run with `--set CLEAN_COST_MAX=0.45`. Say so in the report; the audit decides.
@@ -132,6 +134,24 @@ If the repo is a link and you're not inside it, clone it into a folder whose pat
      the organiser's flythrough, and official timing.
    - Then offer what's next: other ranks, a different clip length, 4K, or deleting the `-mp4` copies
      once the pilot is happy.
+
+### Track layout
+
+RaceGOW tracks are published as 3D layouts by the GeddyV track visualizer
+(`https://racegow.geddyv.lt/track-visualizer/<N>/`). `--track-data racegow:N` reads the layout and works
+out the course: gate order, where each gate falls in the lap, which gate is the start/finish (gate 1),
+and which openings sit close to it. Use it whenever the track number is known:
+
+- Before step 3: `<py> <fpv> course --track-data racegow:N --lap-s <rough lap>` prints the course. Use
+  it to recognise the start gate in the footage and to know which gates come right before and after it
+  (look-alikes there are the usual cause of crossings on the wrong gate).
+- Step 5: `--track-data racegow:N` on `analyze` adds the course to `report.md` and limits the crossing
+  search so it can't reach the openings next to the start gate (no hand-tuned `REFINE_SEARCH` needed).
+- Step 6, in addition: `<audit> coursecheck "<work>" --rank N` shows every lap at each gate's predicted
+  moment. Every column should show the same gate in every row; a different view in one row is a skipped
+  or re-flown gate. The moments are approximate (a few % of a lap): judge "about to pass / passing".
+- The pilot's good-lap time is still the best anchor. With the layout it only needs to be rough.
+- Credit GeddyV's visualizer when you use its data, and don't copy the layout files into this repo.
 
 ### Laps per run
 

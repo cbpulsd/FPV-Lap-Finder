@@ -324,10 +324,12 @@ def shift_to_start_line(vids, v, ref, P, log):
     return new
 
 
-def reference_from_anchor(vids, name, frame, log=print):
+def reference_from_anchor(vids, name, frame, log=print, course_fracs=None):
     """Manual anchor: a start-gate crossing frame; the lap end is found one lap period later. `frame`
     may also be (start, end): both crossings of one lap, used as given (for tracks whose start-gate
-    view is too plain for the end search, e.g. Track 3)."""
+    view is too plain for the end search, e.g. Track 3). `course_fracs`: where the track layout puts
+    the openings, as fractions of the lap; the end must then match the anchor at the start gate AND at
+    the openings early in the lap, so a look-alike gate just after the start can't win (Track 4)."""
     v = next((u for u in vids if u["name"] == name), None)
     if v is None:
         raise RuntimeError(f"--anchor video {name} not found")
@@ -347,18 +349,32 @@ def reference_from_anchor(vids, name, frame, log=print):
     Pf = int(P * v["fps"])
     F = v["F"]
     w0 = window(F, frame)
+    fracs = [0.0] + sorted(f for f in (course_fracs or []) if 0 < f <= 0.3)
+
+    def score(c):
+        if len(fracs) == 1:
+            w = window(F, c)
+            return None if w is None else float(np.sum(w * w0))
+        L, parts = c - frame, []
+        for f in fracs:                        # same point of the lap in the anchor lap and the next one
+            wa, wb = window(F, frame + int(round(f * L))), window(F, c + int(round(f * L)))
+            if wa is None or wb is None:
+                return None if f == 0 else (float(np.mean(parts)) if parts else None)
+            parts.append(float(np.sum(wa * wb)))
+        return float(np.mean(parts))
+
     best, bf = -9, None
     for c in range(frame + int(0.7 * Pf), min(len(F) - 40, frame + int(1.4 * Pf))):
-        w = window(F, c)
-        if w is None:
+        sc = score(c)
+        if sc is None:
             break
-        sc = float(np.sum(w * w0))
         if sc > best:
             best, bf = sc, c
     if bf is None:
         raise RuntimeError("anchor too close to the end of the video")
     ref = dict(video=name, start=int(frame), end=int(bf), period_s=P, source="anchor")
-    log(f"  reference from anchor: {name} {frame}->{bf} ({(bf - frame) / v['fps']:.2f}s)")
+    how = f", matched at the start gate and {len(fracs) - 1} early opening(s) from the track layout" if len(fracs) > 1 else ""
+    log(f"  reference from anchor: {name} {frame}->{bf} ({(bf - frame) / v['fps']:.2f}s{how})")
     return ref
 
 

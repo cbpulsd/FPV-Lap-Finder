@@ -48,6 +48,11 @@ can trigger the "reference lap looks wrong" warning.
 .fpvlaps-venv/bin/python <skill-dir>/scripts/fpvlaps.py analyze --videos "<folder>" --work "<work dir>"
 ```
 
+- `--track-data racegow:N` (or a GeddyV track-visualizer link, its JSON URL, or a saved .json) reads the
+  track's 3D layout: the course (gate order, each gate's position in the lap, the start/finish gate,
+  openings close to it) goes into `report.md`, and the crossing search is capped short of the openings
+  next to the start gate. `fpvlaps.py course --track-data racegow:N [--lap-s 7.3] [--to <track folder>]`
+  prints the course (and saves `course.md` + a cached `track-data.json` there) without any footage.
 - `--laps N` ranks windows of N back-to-back clean laps instead of 3, when the pilot asks for longer
   (or shorter) runs. Everything downstream follows N: report, crossing sheets (N + 1 rows), overlay,
   clip name `bestN_laps_...`, `--crossings` (N + 1 frames). RaceGOW results and `verify` are 3 laps.

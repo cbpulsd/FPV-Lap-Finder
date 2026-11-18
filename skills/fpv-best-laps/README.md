@@ -212,6 +212,8 @@ to check the winning laps against. Template: [`assets/track-README-template.md`]
 | `--title TEXT` | `<folder> · <video>` | Overlay subtitle. `{total}` is replaced by the 3-lap total: `--title "RaceGOW6 Track 2 - {total}"`. |
 | `--overlay-scale F` | 1.0 | Size of the lap-time panel (OpenCV renderer), e.g. `0.7` for a smaller panel tucked into the corner. |
 | `--upscale SIZE` | off | Re-encode the finished clip at `4k`, `1440p`, `1080p` or `WxH` (lanczos, same frames, file name gets `_2160p` etc.). Adds no detail; a 4K upload gets YouTube's higher-bitrate encode. |
+| `--track-data SRC` (analyze/run/course) | off | The track's 3D layout: `racegow:N` (GeddyV RaceGOW track visualizer), its URL, or a saved .json. Course table in `report.md` (gate order, % of the lap, start/finish, look-alikes near it); crossing search capped short of the openings next to the start gate; `fpvaudit.py coursecheck` uses it. |
+| `--lap-s S` (course) | off | `course`: show each gate's predicted time for a lap of S seconds. |
 | `--laps N` (analyze/run) | 3 | Rank the fastest windows of N back-to-back clean laps instead of 3. Reports, crossing sheets, overlay ("BEST N CONSECUTIVE LAPS") and clip name (`bestN_laps_...`) follow N. `verify` and the RaceGOW leaderboard stay 3-lap. |
 | `--run VIDEO@TIME` | off | Instead of a ranked best-3 window: every back-to-back clean lap in VIDEO from the first lap after TIME (`hdz_199@50`, `hdz_199@0:50.7`), any number of laps. Overlay lists every lap; clip `laps_run_<video>_from<start>s_<N>x_<total>s.mp4`. Runs are listed in `report.md` ("Every clean run") and `result.json` (`runs`). |
 | `--max-laps N` | whole run | With `--run`: stop after N laps. |

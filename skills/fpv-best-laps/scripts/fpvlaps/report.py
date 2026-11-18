@@ -7,6 +7,7 @@ import cv2
 from .history import consistency_lines, history_link_for, link_block
 from .media import read_frame_set
 from .runs import clean_runs
+from .course import lines as course_lines
 from .sectors import sector_lines
 
 OFFSETS = list(range(-24, 13, 6))   # frames around a crossing shown in the sheets
@@ -129,7 +130,20 @@ def write_reports(work, R, log=print):
     else:
         lines += ["## No result", "", f"No video contains {N} consecutive clean laps."
                   + (" The \"Every clean run\" table below shows the longest runs there are." if N > 1 else "")]
+    if R["best"]:
+        lines += ["## Crossing times", "",
+                  "Start-gate crossings of each rank in video seconds, e.g. to check them by hand in the GeddyV "
+                  "Lap Calculator (racegow.geddyv.lt/lap-calculator):", ""]
+        for k, r in enumerate(R["best"], 1):
+            cs = [r["laps"][0]["start"]] + [l["end"] for l in r["laps"]]
+            lines.append(f"- Rank {k} `{r['video']}`: " + ", ".join(f"{c / fps:.3f}" for c in cs))
+        lines.append("")
     lines += [""] + run_lines(R) + sector_lines(R) + consistency_lines(R)
+    if R.get("course"):
+        lines += course_lines(R["course"], R.get("typical_lap_s"), R["course"].get("source"))
+        if R["course"].get("search_limit") is not None:
+            lines += [f"Crossing search for this run: +-{R['course']['search_limit']} frames (from the gaps "
+                      "above). `fpvaudit.py coursecheck <work> --rank N` shows each lap at every opening.", ""]
     lines += ["## Session summary", "",
               f"- Lap period (track): {R['lap_period_s']:.2f}s; typical clean lap {R['typical_lap_s']:.2f}s; "
               f"clean laps: {len(clean)} of {len(R['laps'])}; back-to-back laps chained: {R.get('chain_ratio', 1.0):.0%}",

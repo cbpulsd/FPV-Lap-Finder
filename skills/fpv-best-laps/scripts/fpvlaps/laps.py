@@ -104,9 +104,21 @@ def window(F, c):
     return F[idx]
 
 
-def refine(F, approx, refs, search=REFINE_SEARCH):
+_search_limit = None          # set by analyze when the track layout shows openings close to the start gate
+
+
+def limit_refine_search(frames):
+    """Cap the default crossing search for this run (None = REFINE_SEARCH again)."""
+    global _search_limit
+    _search_limit = frames
+
+
+def refine(F, approx, refs, search=None):
     """Exact crossing frame near `approx`: best mean correlation of the +-0.5 s window around a candidate
-    frame with the windows around the reference crossings, searched +-`search` frames."""
+    frame with the windows around the reference crossings, searched +-`search` frames (default
+    REFINE_SEARCH, capped by limit_refine_search)."""
+    if search is None:
+        search = REFINE_SEARCH if _search_limit is None else min(REFINE_SEARCH, _search_limit)
     D = F.shape[1]
     best, bf = -9.0, int(approx)
     lo = max(-min(REFINE_WINDOW), approx - search)

@@ -593,6 +593,48 @@ def cmd_recount(a):
     print(f"  sheet: {out}")
 
 
+# ---------------------------------------------------------------- coursecheck
+
+def cmd_coursecheck(a):
+    """Every lap of a rank (or run) at each gate's predicted moment, from the track's 3D layout: does the
+    quad fly the course's gates in order? Grade A once you look; the moments are approximate (the racing
+    line is flown at constant speed in the layout), so judge each tile as 'about to pass / passing'."""
+    use_fpvlaps()
+    from fpvlaps import course as cm
+    R = load_result(a.work)
+    b, cs, tag, what = target(a, R)
+    if a.track_data:
+        seq = cm.sequence(cm.load(a.track_data, cache=Path(a.work) / "track-data.json")["configuration"])
+    elif R.get("course"):
+        seq = R["course"]
+    else:
+        sys.exit("no track layout: run fpvlaps analyze with --track-data racegow:N, or pass --track-data here")
+    path, box = video_path(R, b["video"]), pic_box(a.work, b["video"])
+    plan = [cm.predicted_frames(seq, s, e) for s, e in zip(cs, cs[1:])]
+    want = {f for row in plan for _, f in row}
+    frames = {f: crop_tile(fr, box, a.width) for f, fr in frames_in_order(path, want)}
+    blank = np.zeros((int(a.width * 0.75), a.width, 3), np.uint8)
+    rows = []
+    for k, row in enumerate(plan, 1):
+        tiles = []
+        for name, f in row:
+            t = frames.get(f)
+            t = blank.copy() if t is None else t.copy()
+            start = name.split(" ")[0] == seq["openings"][0]["name"]      # the start gate (also "next lap")
+            tiles.append(label(t, f"L{k} {name} {f}", start))
+        rows.append(np.hstack(tiles))
+        print(f"  lap {k}: " + "  ".join(f"{n} {f}" for n, f in row))
+    h = min(r.shape[0] for r in rows)
+    out = Path(a.work) / "sheets" / f"{tag}_course.jpg"
+    out.parent.mkdir(exist_ok=True)
+    cv2.imwrite(str(out), title_bar(np.vstack([r[:h] for r in rows]),
+                                    f"{what} {b['video']}: each lap at the predicted moment of every opening "
+                                    f"(track layout). Same gate in every column? Any gate skipped?"),
+                [cv2.IMWRITE_JPEG_QUALITY, 85])
+    print(f"{out}\nEach column should show the same opening (about to be flown or being flown) in every row. "
+          "A column that shows something else in one row = a skipped or re-flown gate on that lap.")
+
+
 # ---------------------------------------------------------------- clipcheck
 
 def centre_gray(fr):
@@ -703,10 +745,14 @@ def main():
     p.add_argument("--template", help="VIDEO:FRAME of a crossing you confirmed by eye (default: tool's reference start)")
     p.add_argument("--search", type=float, default=0.35, help="seconds searched around each tool crossing")
     p = sp.add_parser("clipcheck"); p.add_argument("work"); pick(p)
+    p = sp.add_parser("coursecheck"); p.add_argument("work"); pick(p)
+    p.add_argument("--track-data", help="the track's 3D layout (racegow:N, URL or .json); default: the one "
+                                        "fpvlaps analyze --track-data recorded in result.json")
+    p.add_argument("--width", type=int, default=200, help="tile width in pixels")
     p = sp.add_parser("chain"); p.add_argument("work")
     a = ap.parse_args()
     {"remux": cmd_remux, "probe": cmd_probe, "sheet": cmd_sheet, "period": cmd_period, "recur": cmd_recur,
-     "context": cmd_context, "recount": cmd_recount, "clipcheck": cmd_clipcheck,
+     "context": cmd_context, "recount": cmd_recount, "clipcheck": cmd_clipcheck, "coursecheck": cmd_coursecheck,
      "chain": cmd_chain}[a.cmd](a)
 
 

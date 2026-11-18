@@ -112,6 +112,13 @@ and the only problem is crossings a few frames off, pin all four crossings by ey
 (`sheet ... --step 1` around each) and render with `fpvlaps.py render --rank N --crossings F0,F1,F2,F3`.
 Then `clipcheck` checks the clip against those frames.
 
+**Course check (A)** when the track's 3D layout is known (`fpvlaps.py analyze --track-data racegow:N`):
+`<audit> coursecheck <work> --rank N` (or `--run`) writes `sheets/rankN_course.jpg`: one row per lap, one
+column per gate at its predicted moment. Each column must show the same gate in every row; one row that
+shows something else is a skipped or re-flown gate on that lap. The moments come from the layout's racing
+line at constant speed, so they're a few % of a lap off: read each tile as "about to pass / passing".
+This replaces "gate-by-gate vs the organiser's flythrough" in the Not-verified row.
+
 **Runs of any length** (`fpvlaps.py render --run VIDEO@TIME`): `context`, `recount` and `clipcheck` take the
 same `--run VIDEO@TIME [--max-laps N]` instead of `--rank`, and write `sheets/run_<video>_f<frame>_*.jpg`.
 Audit every crossing of the run the same way; a long run has more crossings where a crash or a missed

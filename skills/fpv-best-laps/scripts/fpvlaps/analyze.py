@@ -13,6 +13,9 @@ from .runs import best_windows, clean_runs
 from .laps import fine_desc, dtw_desc, lap_matches, refine, stalled, window
 from .report import write_reports
 from . import sectors as sectors_mod
+from . import course as course_mod
+from . import laps as laps_mod
+from .config import REFINE_SEARCH
 
 
 def flight_segments_from_motion(motion, fps):
@@ -264,18 +267,36 @@ def track_readme_info(readme):
 
 
 def analyze(work, names, track=None, anchor=None, videos_dir=None, correct_lap=None, readme=None, sectors=None,
-            reference_video=None, log=print, laps_per_result=LAPS_PER_RESULT):
+            reference_video=None, log=print, laps_per_result=LAPS_PER_RESULT, track_data=None):
     """`readme`: what trackdir.choose_reference found (README path, demo, how the reference was chosen),
     recorded in result.json and report.md. `sectors`: the --sectors spec (count or reference frames).
     `reference_video`: {video, path} of a video the pilot knows holds a correct lap; calibration takes
     its reference lap from that video only. `laps_per_result`: laps in each ranked window (`--laps N`;
-    3 = the RaceGOW result)."""
+    3 = the RaceGOW result). `track_data`: the track's 3D layout (`--track-data racegow:N`, a URL or a file):
+    gate order and timing go into the report, and the crossing search is kept short of the openings
+    next to the start gate."""
     if laps_per_result < 1:
         raise SystemExit("--laps must be 1 or more")
     vids = load_all(work, names, log)
     pool = vids                                # videos the reference lap may come from
     fps = vids[0]["fps"]
     warnings = []
+    course = None
+    laps_mod.limit_refine_search(None)
+    if track_data:
+        T_data = course_mod.load(track_data, cache=Path(work) / "track-data.json")
+        course = course_mod.sequence(T_data["configuration"])
+        course["source"] = course_mod.source_url(track_data) or str(track_data)
+        P0 = track_mod.lap_period(vids)
+        if P0:
+            lim = course_mod.safe_search(course, P0, fps)
+            near = ", ".join(f"{n['name']} {n['seconds']:.2f}s {n['side']}"
+                             for n in course_mod.lookalikes(course, P0))
+            log(f"  track data: {len(course['openings'])} openings; near the start gate: {near or 'none'}")
+            if lim < REFINE_SEARCH:
+                laps_mod.limit_refine_search(lim)
+                log(f"  crossing search limited to +-{lim} frames (was {REFINE_SEARCH}) so it can't reach them")
+            course["search_limit"] = lim
     if track:
         ref, T, wins = load_profile(track)
         log(f"  using track profile {track} (reference {ref['video']} {ref['start']}->{ref['end']})")
@@ -296,7 +317,8 @@ def analyze(work, names, track=None, anchor=None, videos_dir=None, correct_lap=N
             frame = tuple(map(int, frame.split("-"))) if "-" in frame else int(frame)
         else:
             pool, name, frame = correct_lap_anchor(work, vids, correct_lap, videos_dir, log)
-        ref = track_mod.reference_from_anchor(pool, name, frame, log)
+        fracs = [e["frac"] for e in course["openings"] if e["frac"]] if course else None
+        ref = track_mod.reference_from_anchor(pool, name, frame, log, course_fracs=fracs)
         if not anchor:
             ref["source"] = "readme"
         T, wins = track_mod.reference_arrays(pool, ref)
@@ -359,7 +381,7 @@ def analyze(work, names, track=None, anchor=None, videos_dir=None, correct_lap=N
                   reference=ref, videos=[dict(name=v["name"], path=v["video"], seconds=v["n"] / v["fps"],
                                                armed_segments=v["segments"], arm_source=v["arm_source"])
                                           for v in vids],
-                  laps=all_laps, best=windows, runs=clean_runs(all_laps), sectors=sector_info)
+                  laps=all_laps, best=windows, runs=clean_runs(all_laps), sectors=sector_info, course=course)
     (Path(work) / "result.json").write_text(json.dumps(result, indent=1), encoding="utf-8")
     write_reports(work, result, log)
     return result

@@ -47,6 +47,11 @@ Claude then:
 
 It comes back to you if something blocks it or needs your call, for example two quads in one folder.
 
+**RaceGOW track number:** add it to the prompt (e.g. *"Track: RaceGOW 6 Track 4"*). Claude then reads the
+track's 3D layout from the [GeddyV track visualizer](https://racegow.geddyv.lt/track-visualizer/4/)
+(`--track-data racegow:4`): gate order, the start/finish gate and the gates close to it, so it finds the
+start gate faster and checks every winning lap gate by gate. Thanks to GeddyV for publishing the layouts.
+
 **More laps or more clips:** change the numbers in the first line. "Find my 5 best 3-lap runs" gives
 five clips; "Find my 3 best 5-lap runs" times runs of five back-to-back laps, with every lap on the
 overlay. The tool ranks up to 5 runs. To time every lap of one stretch instead, ask for it: *"Time every

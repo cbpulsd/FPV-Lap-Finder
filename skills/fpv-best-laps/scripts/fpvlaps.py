@@ -89,7 +89,7 @@ def apply_overrides(ap, a):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("command", choices=["doctor", "run", "extract", "analyze", "render", "save-track", "verify", "history",
-                                        "compare", "save"])
+                                        "compare", "save", "course"])
     ap.add_argument("--videos", help="folder of FPV recordings (one session per file)")
     ap.add_argument("--url", help="YouTube video to analyse instead of --videos (downloaded with yt-dlp)")
     ap.add_argument("--start", help="with --url: analyse from this time in the video (h:mm:ss, m:ss or seconds)")
@@ -139,6 +139,10 @@ def main():
                     help="render: size of the lap-time panel relative to the default (OpenCV renderer), e.g. 0.7")
     ap.add_argument("--upscale", help="render: also re-encode the clip at this size, e.g. 4k, 1440p or 3840x2160 "
                                       "(same frames; for YouTube's higher-bitrate 4K encode)")
+    ap.add_argument("--track-data", help="analyze/run/course: the track's 3D layout, racegow:N (GeddyV track "
+                                         "visualizer), its URL or a saved .json: gate order and timing in the "
+                                         "report, crossing search kept short of gates next to the start gate")
+    ap.add_argument("--lap-s", type=float, help="course: lap time in seconds, to show each gate in seconds")
     ap.add_argument("--laps", type=int, default=3, help="analyze/run: laps in each ranked result, e.g. 5 for the "
                                                          "fastest 5 back-to-back clean laps (default 3, the RaceGOW result)")
     ap.add_argument("--run", help="render: instead of a ranked best-3 window, every back-to-back clean lap in one video "
@@ -181,6 +185,20 @@ def main():
         if not (a.work and a.save_to):
             ap.error("--work and --save-to are required")
         save_copies(a.work, a.save_to, a.rank if "--rank" in sys.argv else None)
+        return
+
+    if a.command == "course":
+        from fpvlaps import course as course_mod
+        if not a.track_data:
+            ap.error("--track-data is required, e.g. racegow:4")
+        cache = Path(a.to) / "track-data.json" if a.to else None
+        T = course_mod.load(a.track_data, cache=cache)
+        seq = course_mod.sequence(T["configuration"])
+        text = "\n".join(course_mod.lines(seq, a.lap_s, course_mod.source_url(a.track_data) or a.track_data))
+        print(text)
+        if a.to:
+            (Path(a.to) / "course.md").write_text(f"# {T.get('name', 'Course')}\n\n" + text + "\n", encoding="utf-8")
+            print(f"  wrote {Path(a.to) / 'course.md'} and {cache}")
         return
 
     if a.command == "compare":
@@ -231,7 +249,7 @@ def main():
         try:
             analyze(work, names, track=ch["track"], anchor=ch["anchor"], videos_dir=a.videos,
                     correct_lap=ch["correct_lap"], readme=ch, sectors=a.sectors,
-                    reference_video=ch["reference_video"], laps_per_result=a.laps)
+                    reference_video=ch["reference_video"], laps_per_result=a.laps, track_data=a.track_data)
         except RuntimeError as e:
             if a.command != "verify":
                 raise

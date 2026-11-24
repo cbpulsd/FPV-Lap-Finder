@@ -1,6 +1,6 @@
 # Running a new track with Claude Desktop (Windows)
 
-**Short version:** the 5-line prompt in the [README](README.md#start-here-find-your-best-laps-with-claude)
+**Short version:** the short prompt in the [README](README.md#start-here-find-your-best-laps-with-claude)
 is enough. Claude sets everything up and follows [CLAUDE.md](CLAUDE.md). Use the longer prompt below
 when you want to choose every option yourself.
 

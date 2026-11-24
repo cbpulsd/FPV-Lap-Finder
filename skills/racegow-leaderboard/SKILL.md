@@ -1,10 +1,13 @@
 ---
 name: racegow-leaderboard
-description: Look up a pilot's current position on the RaceGOW tiny-whoop race leaderboards (https://www.racegow.com/leaderboards) per track. Reads the public Google Sheet the page embeds and reports the official result (Rank, Official Time, Micro Tier) once a track's results are published, otherwise a rank computed from "Unofficial Time" (while the sheet's Rank column says "TBD"). Writes a small JSON with status, rank, of, time, tier and fetched_at that the YouTube upload step uses for the video description. Use whenever someone asks for their RaceGOW rank, position, standing or place, where they are on the leaderboard, or how their submitted time compares, even if they only say "where am I on RaceGOW".
+description: SHELVED - use only when the pilot explicitly asks for this. Look up a pilot's current position on the RaceGOW tiny-whoop race leaderboards (https://www.racegow.com/leaderboards) per track. Reads the public Google Sheet the page embeds and reports the official result (Rank, Official Time, Micro Tier) once a track's results are published, otherwise a rank computed from "Unofficial Time" (while the sheet's Rank column says "TBD"). Writes a small JSON with status, rank, of, time, tier and fetched_at that the YouTube upload step uses for the video description. Use whenever someone asks for their RaceGOW rank, position, standing or place, where they are on the leaderboard, or how their submitted time compares, even if they only say "where am I on RaceGOW".
 compatibility: Python 3.9+, standard library only. Needs internet access to racegow.com and docs.google.com.
 ---
 
 # RaceGOW leaderboard position
+
+> **Shelved.** Not part of the best-laps job in [CLAUDE.md](../../CLAUDE.md). Use this skill only when
+> the pilot asks for it by name or task; never offer it or ask about it during a best-laps job.
 
 Default pilot: **papfpv**, Reg# **300** (PAPFPV in the OSD). Reg# is the registration number,
 not the rank. `<skill-dir>` means the folder that contains this SKILL.md.

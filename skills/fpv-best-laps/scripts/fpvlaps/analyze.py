@@ -284,8 +284,16 @@ def analyze(work, names, track=None, anchor=None, videos_dir=None, correct_lap=N
     course = None
     laps_mod.limit_refine_search(None)
     if track_data:
-        T_data = course_mod.load(track_data, cache=Path(work) / "track-data.json")
-        course = course_mod.sequence(T_data["configuration"])
+        try:
+            T_data = course_mod.load(track_data, cache=Path(work) / "track-data.json")
+            course = course_mod.sequence(T_data["configuration"])
+        except (SystemExit, KeyError, TypeError, ValueError) as e:
+            # The layout only helps; a failed download or an odd file must never stop the job.
+            msg = f"track data {track_data!r} unavailable ({e}); continuing without the course"
+            log(f"  WARNING: {msg}")
+            warnings.append(msg)
+            course = None
+    if course is not None:
         course["source"] = course_mod.source_url(track_data) or str(track_data)
         P0 = track_mod.lap_period(vids)
         if P0:

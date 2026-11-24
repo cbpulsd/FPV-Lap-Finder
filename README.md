@@ -28,18 +28,21 @@
 Find my 3 best 3-lap runs with Racegow.
 Repo: https://github.com/cbpulsd/FPV-Lap-Finder   (or the local folder you cloned it to)
 Footage folder: <e.g. C:\Users\me\Downloads\racegow6-track2>
-Files to scan: <all, or e.g. hdz_132 to hdz_149>
-Good lap: <file, e.g. hdz_149> starting at <time, e.g. 1:05.8>
+Track: <e.g. RaceGOW 6 Track 2, or the track's name>
+Good lap (optional): <file, e.g. hdz_149> starting at <time, e.g. 1:05.8>
 Clone the repo if you're not in it, then read its CLAUDE.md and follow it.
 ```
 
-The good lap is any lap you know you flew cleanly: open the video, find a moment just before you pass
-through the start/finish gate in flight, and give that time.
+That's all Claude asks for: your footage, the track and, only if it can't find the start gate on its
+own, a good lap. You never have to make or download any file. The good lap is any lap you know you
+flew cleanly: open the video, find a moment just before you pass through the start/finish gate in
+flight, and give that time. It's optional, but it makes the start gate quicker and surer to find. To
+scan only some files, add a line like `Files to scan: hdz_132 to hdz_149` (all files by default).
 
 Claude then:
 - sets up Python;
 - converts `.ts` files losslessly into a new folder (your originals are never touched);
-- pins the start gate from your time;
+- pins the start gate (from your good lap, or by finding it in the footage);
 - times every lap in every file;
 - audits the top results;
 - saves your **3 fastest 3-lap runs** as `.mp4` clips with a lap-time overlay in
@@ -47,10 +50,11 @@ Claude then:
 
 It comes back to you if something blocks it or needs your call, for example two quads in one folder.
 
-**RaceGOW track number:** add it to the prompt (e.g. *"Track: RaceGOW 6 Track 4"*). Claude then reads the
+**RaceGOW track number:** with a RaceGOW track (e.g. *"Track: RaceGOW 6 Track 4"*), Claude reads the
 track's 3D layout from the [GeddyV track visualizer](https://racegow.geddyv.lt/track-visualizer/4/)
 (`--track-data racegow:4`): gate order, the start/finish gate and the gates close to it, so it finds the
-start gate faster and checks every winning lap gate by gate. Thanks to GeddyV for publishing the layouts.
+start gate faster and checks every winning lap gate by gate. It downloads the layout itself, and goes on
+without it if it can't. Thanks to GeddyV for publishing the layouts.
 
 **More laps or more clips:** change the numbers in the first line. "Find my 5 best 3-lap runs" gives
 five clips; "Find my 3 best 5-lap runs" times runs of five back-to-back laps, with every lap on the
@@ -65,11 +69,14 @@ workflow Claude follows is in [CLAUDE.md](CLAUDE.md).
 |---|---|
 | [`fpv-best-laps`](skills/fpv-best-laps/SKILL.md) | **Main skill.** Finds the fastest 3 consecutive clean laps in a folder of DVR recordings (RaceGOW, MultiGP, indoor or outdoor) and exports the clip with a lap-time overlay. [Details below](#fpv-best-laps). |
 | [`fpv-laps-audit`](skills/fpv-laps-audit/SKILL.md) | Checks an `fpv-best-laps` result with evidence that doesn't come from the tool (frame sheets, crash-at-the-gate context, an independent recount, render sync) before you trust, post or submit it. [Details below](#audit-a-result-before-you-trust-it). |
-| [`racegow-leaderboard`](skills/racegow-leaderboard/SKILL.md) | Your current place on the RaceGOW leaderboards, per track. |
-| [`racegow-youtube`](skills/racegow-youtube/SKILL.md) | Uploads a verified clip to your YouTube channel with the title, description and tags built from the run. |
-| [`fpv-highlights`](skills/fpv-highlights/SKILL.md) | Not racing: cuts the most interesting moments (speed, rolls, dives, close passes) of a folder of freestyle/cruise/indoor footage into a vertical YouTube Short (max 60 s by default) and uploads it. [Details below](#fpv-highlights). |
+| [`racegow-leaderboard`](skills/racegow-leaderboard/SKILL.md) | *Shelved.* Your current place on the RaceGOW leaderboards, per track. |
+| [`racegow-youtube`](skills/racegow-youtube/SKILL.md) | *Shelved.* Uploads a verified clip to your YouTube channel with the title, description and tags built from the run. |
+| [`fpv-highlights`](skills/fpv-highlights/SKILL.md) | *Shelved.* Not racing: cuts the most interesting moments (speed, rolls, dives, close passes) of a folder of freestyle/cruise/indoor footage into a vertical YouTube Short (max 60 s by default) and uploads it. [Details below](#fpv-highlights). |
 
-More side skills will be added next to these, one folder each under `skills/`.
+**Shelved for now:** the leaderboard, YouTube and highlights skills, and the extra `fpvlaps.py`
+features (sector splits, history, lap comparison, `verify`, track READMEs and saved track profiles).
+They still work, but Claude doesn't use, offer or ask about them during a best-laps job. Ask for one by
+name to use it.
 
 Rendered clips you want to keep (for example on Windows) are saved **outside** the recordings
 folder, with `render --save-to DIR` or `save --work <work> --save-to DIR`. The default is
@@ -93,7 +100,11 @@ the `SKILL.md` files from their rules file.
 
 ---
 
-## RaceGOW leaderboard position
+## Shelved tools
+
+Not part of the best-laps job. Claude uses these only when you ask for them.
+
+### RaceGOW leaderboard position
 
 [`skills/racegow-leaderboard`](skills/racegow-leaderboard/SKILL.md) looks up
 a pilot's place on the [RaceGOW leaderboards](https://www.racegow.com/leaderboards), per track:
@@ -111,7 +122,7 @@ The official rules (scoring, micro tiers, classes) are saved in [`rules/`](rules
 folder per season. `python3 rules/update_rules.py` refreshes them from racegow.com; `git diff rules/`
 then shows what changed.
 
-## fpv-highlights
+### fpv-highlights
 
 [`skills/fpv-highlights`](skills/fpv-highlights/SKILL.md) turns a folder of non-race recordings into
 one short. Every recording is decoded once and every 0.1 s is scored from the optical flow: speed,
@@ -131,7 +142,7 @@ reviewing the upload).
 Or ask your agent: *"Make a 1-minute highlights short from C:\Users\me\Videos\HDZero_12_16_2024."*
 Needs PyAV (`pip install av`): the static ffmpeg build crashes on HDZero `.ts` files.
 
-## Upload the clip to YouTube
+### Upload the clip to YouTube
 
 [`skills/racegow-youtube`](skills/racegow-youtube/SKILL.md) uploads a verified clip to your channel.
 It builds the title and description from the run: time and splits, leaderboard rank, quad, date,

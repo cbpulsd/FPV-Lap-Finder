@@ -8,9 +8,22 @@ the top of [README.md](README.md):
 Find my 3 best 3-lap runs with Racegow.
 Repo: <GitHub link or local folder>
 Footage folder: <folder>
-Files to scan: <all, or e.g. hdz_132 to hdz_149>
-Good lap: <file name> starting at <time, e.g. 1:05.8 or 65.8>
+Track: <e.g. RaceGOW 6 Track 4, or the track's name>
+Good lap (optional): <file name> starting at <time, e.g. 1:05.8 or 65.8>
 ```
+
+## Scope: only the best-laps job
+
+This repo has other tools (leaderboard lookup, YouTube upload, freestyle highlights, sector splits,
+history, lap comparison, YouTube `verify`, track folder READMEs and saved track profiles). They're
+**shelved**: don't read their docs, run them, offer them or ask about them unless the pilot asks for
+that tool by name or task. A best-laps job uses only `fpvlaps.py` (doctor, extract, analyze, course,
+render) and `fpvaudit.py`.
+
+The only things you ever ask the pilot for are the **footage folder**, the **track**, and, only if you
+can't find the start gate yourself, a **good lap**. Ask for whatever is missing in one message.
+**Never ask the pilot to create, download or edit a file** (a JSON, a README, a track profile, a
+config): anything the tool needs, you make or fetch, or you go on without it.
 
 The first line carries two numbers: **how many runs** (clips) and **laps per run**. "Find my 5 best
 5-lap runs" means five clips of five back-to-back laps each; "best 5 (not 3)" alone means five clips
@@ -30,10 +43,11 @@ and ask**.
 |---|---|
 | Repo (link or folder) | You're already in it (this file is at its root) |
 | Footage folder | **Ask**: required |
+| Track | Read it from the folder name if it's there (e.g. `RACEGOW6-TRACK4` = RaceGOW 6 Track 4). Otherwise **ask** once, with any other missing input; "don't know" or a non-RaceGOW track is a fine answer, and you go on without the layout |
 | Files to scan | All videos in the footage folder |
-| Good lap: file + start time | **Ask**: required. It's the anchor every lap is matched against |
-| Track name for the overlay | The footage folder's name, ASCII only (e.g. `racegow6-track2`) |
-| Track layout | If the track is a RaceGOW track with a number (from the prompt or the folder name, e.g. "Track 4"), or the pilot gives a GeddyV track-visualizer link: `--track-data racegow:N` (see **Track layout** below). Otherwise none |
+| Good lap: file + start time | Optional. Without it, find the start gate yourself (step 3). **Ask** for one only if you can't |
+| Track name for the overlay | The track (e.g. `RaceGOW 6 Track 4`), else the footage folder's name; ASCII only |
+| Track layout | If the track is a RaceGOW track with a number, or the pilot gives a GeddyV track-visualizer link: `--track-data racegow:N` (see **Track layout** below). Otherwise none. It's downloaded by the tool; if that fails, go on without it |
 | Laps per run (N) | 3, the RaceGOW result. Any other number the pilot asks for: `--laps N` in step 5 |
 | Clips | Ranks 1, 2 and 3 (the tool ranks at most 5); 10 s before and 10 s after the laps; overlay at 0.7 size; native resolution (`--upscale 4k` only if asked) |
 | Where clips go | A new folder next to the footage: `<footage folder>-clips`. **Never** inside the footage folder |
@@ -54,7 +68,9 @@ If the repo is a link and you're not inside it, clone it into a folder whose pat
 - `<fpv>` = `skills/fpv-best-laps/scripts/fpvlaps.py`, `<audit>` = `skills/fpv-laps-audit/scripts/fpvaudit.py`.
 - Read [`skills/fpv-best-laps/SKILL.md`](skills/fpv-best-laps/SKILL.md) and
   [`skills/fpv-laps-audit/SKILL.md`](skills/fpv-laps-audit/SKILL.md) before step 3. They have the
-  details and the known problems with their fixes.
+  details and the known problems with their fixes. Where they differ from this file, this file wins.
+  Skip their parts on track READMEs, `track.json` / `save-track`, sectors, history, `compare` and
+  `verify`, which are shelved.
 - Run long steps (conversion, extraction, rendering) in the background, and tell the pilot roughly how
   long they take. The first decode takes about 15 min per 30-40 min of 720p footage. Re-runs reuse it.
 - Keep the pilot posted at each step in a sentence or two.
@@ -80,18 +96,31 @@ If the repo is a link and you're not inside it, clone it into a folder whose pat
      - duplicate exports of the same flight (keep one);
      - more than one quad (different OSD name or camera look): **ask**.
 
-3. **Pin the anchor** from the pilot's good-lap time:
-   - Run `<py> <audit> sheet "<batch>/<file>.mp4" --from <time-1.5> --to <time+1.5> --step 6`, then
-     again with `--step 1` around the gate pass.
-   - Pick the frame of a **flying** pass through the start/finish gate. If the pilot's time is the
-     launch from the pad, use the same gate one lap later.
-   - Write down the crossing in words (e.g. "first frame after the gate's left leg leaves the picture")
-     and its frame number. The time may be a few frames off after conversion; trust the picture.
+3. **Pin the anchor**, a frame where a lap starts with a **flying** pass through the start/finish gate.
+   - **With a good lap from the pilot:**
+     - Run `<py> <audit> sheet "<batch>/<file>.mp4" --from <time-1.5> --to <time+1.5> --step 6`, then
+       again with `--step 1` around the gate pass.
+     - Pick the frame of the flying pass through the start/finish gate. If the pilot's time is the
+       launch from the pad, use the same gate one lap later.
+   - **Without one, find it yourself.** Do step 4 first: it needs no anchor and gives the lap length.
+     - Take the longest flight in the probe sheet. Sheet its first 10-15 s (`--step 6`). Every RaceGOW
+       recording starts parked in front of the start gate, so the first gate flown through after
+       takeoff is the start gate.
+     - With the track layout, run `course` (see **Track layout**). The openings it lists right after
+       gate 1 should show up in the frames just after that pass.
+     - Sheet the same flight at about 1 frame per second. The start-gate view must come back once per
+       lap. Pick that gate's pass one lap after takeoff, at the start of a lap with no crash.
+     - If the parked view shows no gate, the view doesn't come back each lap, or no flight has a clean
+       lap, **ask** the pilot for a good lap. Don't guess.
+     - In the report, say the anchor was found without a good lap.
+   - Either way, write down the crossing in words (e.g. "first frame after the gate's left leg leaves the
+     picture") and its frame number. A given time may be a few frames off after conversion; trust the
+     picture. The anchor video and frame are the `<file>:<frame>` used in steps 5 and 6.
 
 4. **Lap length**:
    - Run `<py> <fpv> extract --videos "<batch>"`.
-   - Make a `sheet` of the good-lap video's flight at about 1 frame per second (`--step 60` at
-     60 fps).
+   - Make a `sheet` of the anchor video's flight (the good-lap video, or the longest flight) at about
+     1 frame per second (`--step 60` at 60 fps).
    - Run `<py> <audit> period "<work>"`. The work folder is `fpvlaps-work/<batch folder name>`.
    - Decide the real lap length from the overview. If the detected period is about 2x or 0.5x of it,
      add `--lap-range LO-HI` around the real lap in step 5.
@@ -151,6 +180,9 @@ and which openings sit close to it. Use it whenever the track number is known:
   moment. Every column should show the same gate in every row; a different view in one row is a skipped
   or re-flown gate. The moments are approximate (a few % of a lap): judge "about to pass / passing".
 - The pilot's good-lap time is still the best anchor. With the layout it only needs to be rough.
+- The tool downloads the layout itself. If the download fails (no network, the site is down),
+  `analyze` says so and carries on without it. Do the job without the layout and say so in the report.
+  Never ask the pilot to download or make the layout file.
 - Credit GeddyV's visualizer when you use its data, and don't copy the layout files into this repo.
 
 ### Laps per run
@@ -180,13 +212,17 @@ stopped (and why: a rejected lap, a crash, the end of the flight).
 ### When to stop and ask
 
 - Python or another tool can't be installed (a download keeps failing, admin rights needed).
-- The footage folder, the good-lap file or the good-lap time is missing, or the time doesn't show a
-  gate pass.
+- The footage folder is missing.
+- The track isn't in the prompt or the folder name (ask once; "don't know" is a fine answer).
+- You can't find the start gate yourself (step 3), or the pilot's good-lap time doesn't show a gate
+  pass: ask for a good lap.
 - More than one quad is in the folder, or it's unclear which gate is start/finish.
 - The pad-launch lap would change the result, so the race rules decide.
 - No rank passes the audit even after the fixes above.
 
-## Other things in this repo
+## Shelved tools
 
-[README.md](README.md) lists the other skills: leaderboard position, YouTube upload, sector splits,
-history and lap comparison, and freestyle highlights. Use each one's `SKILL.md` when asked for it.
+[README.md](README.md) also lists the leaderboard position, YouTube upload and freestyle highlights
+skills, and `fpvlaps.py` has sector splits, history, lap comparison, `verify`, track READMEs and
+`save-track`. They're shelved (see **Scope** above). Use one only when the pilot asks for it, and then
+follow its `SKILL.md`.

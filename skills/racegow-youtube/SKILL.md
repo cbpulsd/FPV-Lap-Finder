@@ -1,10 +1,13 @@
 ---
 name: racegow-youtube
-description: Upload a verified best-3-consecutive-laps clip (from the fpv-best-laps skill) to the pilot's YouTube channel, with the title, description and tags built from the run - track, 3-lap time and splits, pilot, current RaceGOW leaderboard rank, quad, date flown, sponsor, deadline and the organiser's demo flythrough link - then record the video URL in result.json and the track README. Use whenever someone wants to upload, post, publish or share a best-laps / RaceGOW / whoop race clip on YouTube, or asks for a YouTube title or description for one.
+description: SHELVED - use only when the pilot explicitly asks for this. Upload a verified best-3-consecutive-laps clip (from the fpv-best-laps skill) to the pilot's YouTube channel, with the title, description and tags built from the run - track, 3-lap time and splits, pilot, current RaceGOW leaderboard rank, quad, date flown, sponsor, deadline and the organiser's demo flythrough link - then record the video URL in result.json and the track README. Use whenever someone wants to upload, post, publish or share a best-laps / RaceGOW / whoop race clip on YouTube, or asks for a YouTube title or description for one.
 compatibility: Python 3.9+. Building the description needs only the standard library; uploading needs google-api-python-client and google-auth-oauthlib (scripts/requirements.txt), or `uv run --with`. Needs a Google Cloud OAuth desktop client with YouTube Data API v3 enabled.
 ---
 
 # Upload a best-laps clip to YouTube
+
+> **Shelved.** Not part of the best-laps job in [CLAUDE.md](../../CLAUDE.md). Use this skill only when
+> the pilot asks for it by name or task; never offer it or ask about it during a best-laps job.
 
 Pilot **PAPFPV**. `<skill-dir>` is the folder with this SKILL.md, `<work>` the fpv-best-laps work
 folder (has `result.json` and `export/render_rank<N>.json`). Only upload a clip whose laps were

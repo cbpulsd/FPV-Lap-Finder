@@ -1,10 +1,13 @@
 ---
 name: fpv-highlights
-description: Cut the most interesting moments of a folder of FPV recordings (freestyle, cruising, park or indoor sessions - not racing) into one short video, by default a vertical YouTube Short of at most 60 seconds, save it outside the recordings folder and upload it to the pilot's YouTube channel. Scores every 0.1 s of every recording for speed, rolls/flips, dives and close passes, drops parked/menu/static/post-flight-STATS footage, and picks varied clips. Use whenever someone wants a highlight reel, a short, a best-moments or montage clip, or "the best bits" from a folder of hdz_*/DJI/Walksnail DVR files that isn't a lap-time race (for best laps use fpv-best-laps).
+description: SHELVED - use only when the pilot explicitly asks for this. Cut the most interesting moments of a folder of FPV recordings (freestyle, cruising, park or indoor sessions - not racing) into one short video, by default a vertical YouTube Short of at most 60 seconds, save it outside the recordings folder and upload it to the pilot's YouTube channel. Scores every 0.1 s of every recording for speed, rolls/flips, dives and close passes, drops parked/menu/static/post-flight-STATS footage, and picks varied clips. Use whenever someone wants a highlight reel, a short, a best-moments or montage clip, or "the best bits" from a folder of hdz_*/DJI/Walksnail DVR files that isn't a lap-time race (for best laps use fpv-best-laps).
 compatibility: Python 3.9+ with av (PyAV), opencv-python-headless and numpy (scripts/requirements.txt). Upload needs google-api-python-client + google-auth-oauthlib and the racegow-youtube skill's sign-in token.
 ---
 
 # FPV highlights short
+
+> **Shelved.** Not part of the best-laps job in [CLAUDE.md](../../CLAUDE.md). Use this skill only when
+> the pilot asks for it by name or task; never offer it or ask about it during a best-laps job.
 
 Turns a folder of raw FPV recordings into one short: the best moments, hard-cut, original audio,
 vertical 1080x1920 for YouTube Shorts (default max **60 s**), then uploads it. Pilot **PAPFPV**,

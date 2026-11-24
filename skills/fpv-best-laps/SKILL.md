@@ -69,6 +69,9 @@ can trigger the "reference lap looks wrong" warning.
   `report.md` ("Reference to check against"). Read that README yourself too: it often has notes
   such as skipped-dive shortcuts. `--no-readme` ignores it, `--readme FILE` picks another one. Format:
   `assets/track-README-template.md`.
+- **Shelved during a CLAUDE.md best-laps job** (it runs with `--no-readme`): the track README,
+  `track.json` / `save-track`, sectors, history, `compare` and `verify` below. Don't ask the pilot for a
+  README, a demo link or any file; use them only when the pilot asks.
 - **First batch of a new track: write the track README first.** If the track folder (the parent of
   the batch folder) has no `README.md`, create one from `assets/track-README-template.md` before
   analysing: the demo video URL and the flythrough start (ask the pilot if you don't have them),

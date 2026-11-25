@@ -17,7 +17,9 @@ from any agent or a terminal. `<skill-dir>` means the folder that contains this 
 
 - A result is **exactly 3 consecutive laps** in one recording. Lap n+1 starts at the gate crossing
   where lap n ended.
-- Laps start and end at the **start gate**. Every recording begins with the quad parked in front of it.
+- Laps start and end at the **start gate**. Automatic calibration expects recordings that begin with the
+  quad parked in front of it. Not all do: if a launch faces elsewhere or passes other gates first, the
+  first gate after takeoff isn't the start gate, so use `--anchor`.
 - **Clean** laps only: no crash, no disarm, no stop, and the lap follows the normal racing line.
 - The best result is the minimum 3-lap total over a sliding window across all videos.
 - The export has the overlay (total + lap 1/2/3) **left-aligned on the left edge** of the frame.

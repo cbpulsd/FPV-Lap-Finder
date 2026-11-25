@@ -9,7 +9,7 @@ Find my 3 best 3-lap runs with Racegow.
 Repo: <GitHub link or local folder>
 Footage folder: <folder>
 Track: <e.g. RaceGOW 6 Track 4, or the track's name>
-Good lap (optional): <file name> starting at <time, e.g. 1:05.8 or 65.8>
+Good lap: <file name> starting at <time, e.g. 1:05.8 or 65.8, or "not sure">
 ```
 
 ## Scope: only the best-laps job
@@ -20,8 +20,9 @@ history, lap comparison, YouTube `verify`, track folder READMEs and saved track 
 that tool by name or task. A best-laps job uses only `fpvlaps.py` (doctor, extract, analyze, course,
 render) and `fpvaudit.py`.
 
-The only things you ever ask the pilot for are the **footage folder**, the **track**, and, only if you
-can't find the start gate yourself, a **good lap**. Ask for whatever is missing in one message.
+The only inputs you ask the pilot for are the **footage folder**, the **track** and a **good lap**. Ask
+for whatever is missing in one message. A pilot who has no good lap to hand can pick the start gate from
+pictures instead (step 3). Other questions: only those under **When to stop and ask**.
 **Never ask the pilot to create, download or edit a file** (a JSON, a README, a track profile, a
 config): anything the tool needs, you make or fetch, or you go on without it.
 
@@ -45,7 +46,7 @@ and ask**.
 | Footage folder | **Ask**: required |
 | Track | Read it from the folder name if it's there (e.g. `RACEGOW6-TRACK4` = RaceGOW 6 Track 4). Otherwise **ask** once, with any other missing input; "don't know" or a non-RaceGOW track is a fine answer, and you go on without the layout |
 | Files to scan | All videos in the footage folder |
-| Good lap: file + start time | Optional. Without it, find the start gate yourself (step 3). **Ask** for one only if you can't |
+| Good lap: file + start time | **Ask**, with any other missing input. If the pilot isn't sure, let them pick the start gate from pictures (step 3). Never choose the gate yourself |
 | Track name for the overlay | The track (e.g. `RaceGOW 6 Track 4`), else the footage folder's name; ASCII only |
 | Track layout | If the track is a RaceGOW track with a number, or the pilot gives a GeddyV track-visualizer link: `--track-data racegow:N` (see **Track layout** below). Otherwise none. It's downloaded by the tool; if that fails, go on without it |
 | Laps per run (N) | 3, the RaceGOW result. Any other number the pilot asks for: `--laps N` in step 5 |
@@ -102,25 +103,28 @@ If the repo is a link and you're not inside it, clone it into a folder whose pat
        again with `--step 1` around the gate pass.
      - Pick the frame of the flying pass through the start/finish gate. If the pilot's time is the
        launch from the pad, use the same gate one lap later.
-   - **Without one, find it yourself.** Do step 4 first: it needs no anchor and gives the lap length.
-     - Take the longest flight in the probe sheet. Sheet its first 10-15 s (`--step 6`). Every RaceGOW
-       recording starts parked in front of the start gate, so the first gate flown through after
-       takeoff is the start gate.
-     - With the track layout, run `course` (see **Track layout**). The openings it lists right after
-       gate 1 should show up in the frames just after that pass.
-     - Sheet the same flight at about 1 frame per second. The start-gate view must come back once per
-       lap. Pick that gate's pass one lap after takeoff, at the start of a lap with no crash.
-     - If the parked view shows no gate, the view doesn't come back each lap, or no flight has a clean
-       lap, **ask** the pilot for a good lap. Don't guess.
-     - In the report, say the anchor was found without a good lap.
+   - **Without one, the pilot picks the start gate from pictures.** Do step 4's `extract` and `period`
+     first: they need no anchor and give the lap length. Use a steady flight with several laps.
+     - Sheet one whole lap from the middle of that flight, plus about a second, with large pictures:
+       `--step 12 --cols 5 --width 380`. Each picture is labelled with its frame number and time.
+     - Send the pilot the sheet and **ask** which picture is closest to passing the start/finish gate.
+       With the track layout, `course` (see **Track layout**) may help you describe the order of the
+       gates. It can't tell you which gate in the pictures is gate 1.
+     - Then sheet every frame around their pick, as with a good lap, and look one lap length earlier
+       and later: the same gate must come back. If it doesn't, ask again.
+     - In the report, say the start gate was picked from pictures.
+   - **Don't choose the gate yourself, with or without the layout.** The gates are look-alike pipes, and
+     the first gate after takeoff isn't always the start gate: pilots may launch facing elsewhere and
+     pass other gates first. A wrong gate still gives neat, repeatable and wrong lap times.
+   - **Wait for the pilot's answer** before step 5. Remuxing and extraction can run meanwhile.
    - Either way, write down the crossing in words (e.g. "first frame after the gate's left leg leaves the
      picture") and its frame number. A given time may be a few frames off after conversion; trust the
      picture. The anchor video and frame are the `<file>:<frame>` used in steps 5 and 6.
 
 4. **Lap length**:
    - Run `<py> <fpv> extract --videos "<batch>"`.
-   - Make a `sheet` of the anchor video's flight (the good-lap video, or the longest flight) at about
-     1 frame per second (`--step 60` at 60 fps).
+   - Make a `sheet` of the anchor video's flight (the good-lap video, or the flight used for the
+     pictures in step 3) at about 1 frame per second (`--step 60` at 60 fps).
    - Run `<py> <audit> period "<work>"`. The work folder is `fpvlaps-work/<batch folder name>`.
    - Decide the real lap length from the overview. If the detected period is about 2x or 0.5x of it,
      add `--lap-range LO-HI` around the real lap in step 5.
@@ -214,8 +218,8 @@ stopped (and why: a rejected lap, a crash, the end of the flight).
 - Python or another tool can't be installed (a download keeps failing, admin rights needed).
 - The footage folder is missing.
 - The track isn't in the prompt or the folder name (ask once; "don't know" is a fine answer).
-- You can't find the start gate yourself (step 3), or the pilot's good-lap time doesn't show a gate
-  pass: ask for a good lap.
+- No good lap was given, or its time doesn't show a gate pass: ask for one, or have the pilot pick the
+  start gate from pictures (step 3).
 - More than one quad is in the folder, or it's unclear which gate is start/finish.
 - The pad-launch lap would change the result, so the race rules decide.
 - No rank passes the audit even after the fixes above.

@@ -29,20 +29,20 @@ Find my 3 best 3-lap runs with Racegow.
 Repo: https://github.com/cbpulsd/FPV-Lap-Finder   (or the local folder you cloned it to)
 Footage folder: <e.g. C:\Users\me\Downloads\racegow6-track2>
 Track: <e.g. RaceGOW 6 Track 2, or the track's name>
-Good lap (optional): <file, e.g. hdz_149> starting at <time, e.g. 1:05.8>
+Good lap: <file, e.g. hdz_149> starting at <time, e.g. 1:05.8, or "not sure">
 Clone the repo if you're not in it, then read its CLAUDE.md and follow it.
 ```
 
-That's all Claude asks for: your footage, the track and, only if it can't find the start gate on its
-own, a good lap. You never have to make or download any file. The good lap is any lap you know you
-flew cleanly: open the video, find a moment just before you pass through the start/finish gate in
-flight, and give that time. It's optional, but it makes the start gate quicker and surer to find. To
-scan only some files, add a line like `Files to scan: hdz_132 to hdz_149` (all files by default).
+Those are the only inputs: your footage, the track and a good lap. You never have to make or download
+any file. The good lap is any lap you know you flew cleanly: open the video, find a moment just before
+you pass through the start/finish gate in flight, and give that time. If you're not sure, Claude shows
+you pictures of one lap and you point at the start gate. It doesn't guess, because the wrong gate gives
+wrong lap times that look right. To scan only some files, add a line like `Files to scan: hdz_132 to hdz_149` (all files by default).
 
 Claude then:
 - sets up Python;
 - converts `.ts` files losslessly into a new folder (your originals are never touched);
-- pins the start gate (from your good lap, or by finding it in the footage);
+- pins the start gate (from your good lap, or the picture you point at);
 - times every lap in every file;
 - audits the top results;
 - saves your **3 fastest 3-lap runs** as `.mp4` clips with a lap-time overlay in
